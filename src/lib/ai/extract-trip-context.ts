@@ -1,6 +1,7 @@
 import { getGroqClient, isGroqStubbed, GROQ_MODEL } from "@/lib/ai/groq-client";
 import { safeParseTripContextFields, type TripContext } from "@/lib/ai/trip-context";
 import { INTENTS, type Intent } from "@/lib/ai/intent";
+import { KNOWN_DESTINATIONS } from "@/lib/planner/destinations";
 
 export type ExtractionResult = {
   intent: Intent;
@@ -35,24 +36,6 @@ const WORD_NUMBERS: Record<string, number> = {
   eleven: 11,
   twelve: 12,
 };
-
-const KNOWN_DESTINATIONS = [
-  "goa",
-  "kerala",
-  "manali",
-  "shimla",
-  "jaipur",
-  "udaipur",
-  "delhi",
-  "mumbai",
-  "bali",
-  "paris",
-  "london",
-  "tokyo",
-  "dubai",
-  "singapore",
-  "bangkok",
-];
 
 const KNOWN_INTERESTS = [
   "beaches",

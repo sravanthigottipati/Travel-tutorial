@@ -133,7 +133,7 @@ export function ChatWindow({ initialSessionId, initialMessages, initialContext }
           </Button>
         </form>
       </div>
-      <TripContextPanel context={context} />
+      <TripContextPanel context={context} sessionId={sessionId} />
     </div>
   );
 }

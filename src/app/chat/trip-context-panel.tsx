@@ -1,7 +1,9 @@
 import type { TripContext } from "@/lib/ai/trip-context";
+import { SaveTripButton } from "./save-trip-button";
 
 type Props = {
   context: TripContext;
+  sessionId: string | null;
 };
 
 const LABELS: Record<string, string> = {
@@ -12,12 +14,15 @@ const LABELS: Record<string, string> = {
   foodPreference: "Food preference",
 };
 
-export function TripContextPanel({ context }: Props) {
+export function TripContextPanel({ context, sessionId }: Props) {
   const rows = (["destination", "durationDays", "travelers", "budget", "foodPreference"] as const)
     .filter((key) => context[key] !== undefined && context[key] !== "")
     .map((key) => ({ label: LABELS[key], value: String(context[key]) }));
 
   const hasAnything = rows.length > 0 || (context.interests?.length ?? 0) > 0;
+  const canSaveTrip = Boolean(
+    context.destination && context.durationDays && context.travelers && context.budget
+  );
 
   return (
     <aside className="hidden w-56 shrink-0 flex-col gap-3 border-l border-border p-4 text-sm sm:flex">
@@ -37,6 +42,11 @@ export function TripContextPanel({ context }: Props) {
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground">Interests</span>
           <span>{context.interests.join(", ")}</span>
+        </div>
+      )}
+      {canSaveTrip && sessionId && (
+        <div className="mt-2">
+          <SaveTripButton sessionId={sessionId} />
         </div>
       )}
     </aside>
