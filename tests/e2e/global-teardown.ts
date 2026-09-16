@@ -9,13 +9,27 @@ const ENV_PATH = path.join(ROOT, ".env");
 const DB_PATH = path.join(ROOT, "prisma", "e2e-test.db");
 
 export default async function globalTeardown() {
+  const logPath = path.join(STATE_DIR, "server.log");
+  if (fs.existsSync(logPath)) {
+    console.log("\n--- dev server log (tests/e2e/.state/server.log) ---");
+    console.log(fs.readFileSync(logPath, "utf-8"));
+    console.log("--- end dev server log ---\n");
+  }
+
   const pidFile = path.join(STATE_DIR, "server.pid");
   if (fs.existsSync(pidFile)) {
     const pid = fs.readFileSync(pidFile, "utf-8").trim();
     try {
-      // /T kills the whole process tree — the captured PID is cmd.exe's
-      // (spawned via shell: true), with `next dev` as its child.
-      execSync(`taskkill /F /T /PID ${pid}`, { stdio: "ignore" });
+      if (process.platform === "win32") {
+        // /T kills the whole process tree — the captured PID is cmd.exe's
+        // (spawned via shell: true), with `next dev` as its child.
+        execSync(`taskkill /F /T /PID ${pid}`, { stdio: "ignore" });
+      } else {
+        // detached: true puts the spawned shell in its own process group
+        // on POSIX; killing -PID kills the whole group (shell + next dev),
+        // not just the shell itself.
+        process.kill(-Number(pid), "SIGKILL");
+      }
     } catch {
       // Already exited — fine.
     }

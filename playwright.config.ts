@@ -12,6 +12,10 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1, // single shared server/database — tests must not race each other
   retries: 0,
+  // Default 30s is tight for the full multi-step journey (real network
+  // calls to Open-Meteo, several page transitions) under slower/shared CI
+  // hardware.
+  timeout: 60_000,
   reporter: "list",
   globalSetup: "./tests/e2e/global-setup.ts",
   globalTeardown: "./tests/e2e/global-teardown.ts",
