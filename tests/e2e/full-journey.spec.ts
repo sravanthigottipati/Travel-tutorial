@@ -14,6 +14,13 @@ test.describe.configure({ mode: "serial" });
 const email = `e2e-${Date.now()}@example.com`;
 const password = "password123";
 
+test("GET /api/health reports a reachable database", async ({ request }) => {
+  const res = await request.get("/api/health");
+  expect(res.status()).toBe(200);
+  const body = await res.json();
+  expect(body).toEqual({ status: "ok", database: "ok" });
+});
+
 test("full journey: register -> chat creates a trip -> itinerary -> budget -> conversational edit -> reload persists", async ({
   page,
 }) => {
@@ -53,10 +60,15 @@ test("full journey: register -> chat creates a trip -> itinerary -> budget -> co
   // role="button" for semantic-button purposes even though the underlying
   // element is an <a href>, so these are "button" role, not "link".
   const viewItineraryButton = page.getByRole("button", { name: "View itinerary" });
-  await expect(viewItineraryButton).toBeVisible({ timeout: 15_000 });
-  const itineraryHref = await viewItineraryButton.getAttribute("href");
-
-  await page.goto(itineraryHref!);
+  // Generous timeout: this is the itinerary engine's first invocation in
+  // the run, so it can include Turbopack's on-demand compile of that
+  // route on top of the actual request.
+  await expect(viewItineraryButton).toBeVisible({ timeout: 25_000 });
+  // Click-and-wait-for-URL rather than reading the href and calling
+  // page.goto() separately — the separate goto races against the SPA's
+  // own client-side transition machinery and intermittently gets
+  // aborted (net::ERR_ABORTED).
+  await Promise.all([page.waitForURL(/\/itinerary$/), viewItineraryButton.click()]);
   await expect(page.getByRole("heading", { name: "Goa itinerary" })).toBeVisible();
   await expect(page.getByText("Day 1", { exact: true })).toBeVisible();
   await expect(page.getByText("Day 4", { exact: true })).toBeVisible();
@@ -74,8 +86,7 @@ test("full journey: register -> chat creates a trip -> itinerary -> budget -> co
   await page.goto(tripHref!);
   const viewBudgetButton = page.getByRole("button", { name: "View budget" });
   await expect(viewBudgetButton).toBeVisible();
-  const budgetHref = await viewBudgetButton.getAttribute("href");
-  await page.goto(budgetHref!);
+  await Promise.all([page.waitForURL(/\/budget$/), viewBudgetButton.click()]);
   await expect(page.getByRole("heading", { name: "Goa budget" })).toBeVisible();
   await expect(page.getByText("Total")).toBeVisible();
 

@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  lint-test-build:
+    runs-on: ubuntu-latest
+    env:
+      # Placeholders — no real secrets needed. build/generate don't need a
+      # live database connection (every DB-touching route is dynamic, not
+      # statically rendered), and GROQ_API_KEY being a placeholder means
+      # the app runs in stub mode, same as local dev without a real key.
+      DATABASE_URL: postgresql://user:password@localhost:5432/placeholder
+      AUTH_SECRET: ci-placeholder-secret-not-for-production-use
+      GROQ_API_KEY: your_groq_api_key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: lint-test-build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Self-contained — global-setup.ts provisions its own throwaway
+      # SQLite database and writes its own .env, so no secrets needed here.
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
