@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
-import { generateItinerary } from "@/lib/planner/itinerary-engine";
+import { generateItineraryForTrip } from "@/lib/planner/trip-service";
 import { recalculateTripBudget } from "@/lib/budget/recalculate-trip-budget";
-import { TripStatus } from "@/generated/prisma/client";
 
 async function getOwnedTrip(userId: string, tripId: string) {
   return prisma.trip.findFirst({ where: { id: tripId, userId } });
@@ -12,7 +11,8 @@ async function getOwnedTrip(userId: string, tripId: string) {
 
 // Generates (or regenerates) the itinerary for a trip from its stored
 // fields via the deterministic planning pipeline (Section 15.1). This
-// replaces any existing itinerary/activities for the trip.
+// replaces any existing itinerary/activities for the trip. Shared with the
+// Phase 9 generateItinerary tool via generateItineraryForTrip().
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -28,49 +28,9 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const plan = generateItinerary({
-    destination: trip.destination,
-    durationDays: trip.durationDays,
-    travelers: trip.travelers,
-    budget: Number(trip.budget),
-    interests: [],
-  });
+  const result = await generateItineraryForTrip(trip.id);
 
-  await prisma.$transaction([
-    prisma.itinerary.deleteMany({ where: { tripId: trip.id } }),
-    ...plan.days.map((day) =>
-      prisma.itinerary.create({
-        data: {
-          tripId: trip.id,
-          dayNumber: day.dayNumber,
-          title: day.title,
-          activities: {
-            create: day.activities.map((activity, index) => ({
-              name: activity.name,
-              location: activity.location,
-              startTime: activity.startTime,
-              endTime: activity.endTime,
-              estimatedCost: activity.estimatedCost,
-              notes: activity.notes,
-              sortOrder: index,
-            })),
-          },
-        },
-      })
-    ),
-    prisma.trip.update({ where: { id: trip.id }, data: { status: TripStatus.PLANNED } }),
-  ]);
-
-  const [itineraries, budget] = await Promise.all([
-    prisma.itinerary.findMany({
-      where: { tripId: trip.id },
-      orderBy: { dayNumber: "asc" },
-      include: { activities: { orderBy: { sortOrder: "asc" } } },
-    }),
-    recalculateTripBudget(trip.id),
-  ]);
-
-  return NextResponse.json({ itineraries, budget, warnings: plan.warnings });
+  return NextResponse.json(result);
 }
 
 const activityInput = z.object({

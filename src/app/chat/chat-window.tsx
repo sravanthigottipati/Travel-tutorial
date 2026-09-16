@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "cn";
@@ -22,6 +23,7 @@ export function ChatWindow({ initialSessionId, initialMessages, initialContext }
   const [sessionId, setSessionId] = useState(initialSessionId);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [context, setContext] = useState<TripContext>(initialContext ?? emptyTripContext);
+  const [toolTripId, setToolTripId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -64,6 +66,9 @@ export function ChatWindow({ initialSessionId, initialMessages, initialContext }
           // ignore malformed header, keep previous context
         }
       }
+
+      const createdTripId = res.headers.get("X-Trip-Id");
+      if (createdTripId) setToolTripId(createdTripId);
 
       if (!res.body) throw new Error("No response body");
 
@@ -120,6 +125,15 @@ export function ChatWindow({ initialSessionId, initialMessages, initialContext }
             </div>
           ))}
         </div>
+
+        {toolTripId && (
+          <p className="text-sm text-muted-foreground">
+            <Link href={`/trips/${toolTripId}`} className="text-primary underline-offset-4 hover:underline">
+              View the trip
+            </Link>{" "}
+            the assistant just created or updated.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Input

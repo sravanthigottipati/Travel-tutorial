@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { createTripSchema } from "@/lib/planner/trip-schema";
+import { createTrip } from "@/lib/planner/trip-service";
 import { parseStoredTripContext } from "@/lib/ai/trip-context";
 
 export async function GET() {
@@ -70,16 +71,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const trip = await prisma.trip.create({
-    data: {
-      userId,
+  const trip = await createTrip(
+    userId,
+    {
       destination: fields.destination,
       durationDays: fields.durationDays,
       travelers: fields.travelers,
       budget: fields.budget,
-      startDate: input.startDate ? new Date(input.startDate) : undefined,
     },
-  });
+    input.startDate ? new Date(input.startDate) : undefined
+  );
 
   if (chatSessionId) {
     await prisma.chatSession.update({

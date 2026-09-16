@@ -9,10 +9,13 @@ import {
   recommendDestinations,
   recommendPlaces,
 } from "@/lib/recommendations/recommendation-engine";
+import { decideAndRunTool } from "@/lib/ai/agent";
 import { ChatRole } from "@/generated/prisma/client";
 
 const bodySchema = z.object({
-  sessionId: z.string().optional(),
+  // The client sends `sessionId: null` for a brand-new chat (React state
+  // starts at null, not undefined) — accept both.
+  sessionId: z.string().nullable().optional(),
   message: z.string().trim().min(1).max(4000),
 });
 
@@ -81,6 +84,28 @@ export async function POST(request: Request) {
     }
   }
 
+  // Phase 9: let the orchestrator (real Groq tool-calling, or a heuristic
+  // stub) decide whether this message requires an actual backend action —
+  // creating a trip, modifying an itinerary, recalculating a budget, etc.
+  // — rather than just talking about it.
+  const toolResult = await decideAndRunTool({
+    history,
+    message,
+    context: mergedContext,
+    intent,
+    userId,
+    tripId: chatSession.tripId,
+  });
+
+  if (toolResult?.createdTripId && !chatSession.tripId) {
+    await prisma.chatSession.update({
+      where: { id: chatSession.id },
+      data: { tripId: toolResult.createdTripId },
+    });
+  }
+
+  const groundingNote = [recommendations, toolResult?.summary].filter(Boolean).join(" ") || null;
+
   const encoder = new TextEncoder();
   let assistantText = "";
 
@@ -92,7 +117,7 @@ export async function POST(request: Request) {
           message,
           mergedContext,
           intent,
-          recommendations
+          groundingNote
         )) {
           assistantText += chunk;
           controller.enqueue(encoder.encode(chunk));
@@ -125,6 +150,8 @@ export async function POST(request: Request) {
       "X-Session-Id": chatSession.id,
       "X-Intent": intent,
       "X-Trip-Context": encodeURIComponent(JSON.stringify(mergedContext)),
+      ...(toolResult ? { "X-Tool-Called": toolResult.toolName } : {}),
+      ...(toolResult?.createdTripId ? { "X-Trip-Id": toolResult.createdTripId } : {}),
       "Cache-Control": "no-store",
     },
   });

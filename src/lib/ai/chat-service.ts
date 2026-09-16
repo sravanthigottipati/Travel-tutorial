@@ -21,7 +21,7 @@ function missingFields(context: TripContext): string[] {
 function buildSystemPrompt(
   context: TripContext,
   intent: Intent,
-  recommendations: string | null
+  groundingNote: string | null
 ): string {
   const missing = missingFields(context);
   return [
@@ -33,8 +33,8 @@ function buildSystemPrompt(
     missing.length > 0
       ? `Missing essential info: ${missing.join(", ")}. Ask for it only if needed for this reply — don't repeat questions already answered.`
       : "All essential trip fields are known — focus on being helpful rather than asking more questions.",
-    recommendations
-      ? `Recommendation Engine results (ground your answer in these — don't invent other places): ${recommendations}`
+    groundingNote
+      ? `Backend results (ground your answer in these — don't invent other places or facts): ${groundingNote}`
       : "",
   ]
     .filter(Boolean)
@@ -55,7 +55,7 @@ function stubReply(
   message: string,
   context: TripContext,
   intent: Intent,
-  recommendations: string | null
+  groundingNote: string | null
 ): string {
   const missing = missingFields(context);
   const knownSummary =
@@ -67,7 +67,7 @@ function stubReply(
     `(Stub response — no GROQ_API_KEY configured yet.) ` +
     `I heard: "${message}". Detected intent: ${intent}. Known trip context: ${knownSummary}.` +
     (missing.length > 0 ? ` Still missing: ${missing.join(", ")}.` : "") +
-    (recommendations ? ` Recommendation Engine results: ${recommendations}.` : "") +
+    (groundingNote ? ` ${groundingNote}` : "") +
     ` Once a real Groq API key is set in .env, this will be answered by ${GROQ_MODEL}.`
   );
 }
@@ -81,10 +81,10 @@ export async function* streamAssistantReply(
   message: string,
   context: TripContext,
   intent: Intent,
-  recommendations: string | null = null
+  groundingNote: string | null = null
 ): AsyncGenerator<string> {
   if (isGroqStubbed()) {
-    yield* chunkStubText(stubReply(message, context, intent, recommendations));
+    yield* chunkStubText(stubReply(message, context, intent, groundingNote));
     return;
   }
 
@@ -93,7 +93,7 @@ export async function* streamAssistantReply(
     model: GROQ_MODEL,
     stream: true,
     messages: [
-      { role: "system", content: buildSystemPrompt(context, intent, recommendations) },
+      { role: "system", content: buildSystemPrompt(context, intent, groundingNote) },
       ...history.map((turn) => ({ role: turn.role, content: turn.content })),
       { role: "user", content: message },
     ],
