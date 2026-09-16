@@ -23,29 +23,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(rawCredentials) {
         const parsed = loginSchema.safeParse(rawCredentials);
-        if (!parsed.success) {
-          console.error("[auth] TEMP-DIAG schema parse failed", parsed.error.flatten());
-          return null;
-        }
+        if (!parsed.success) return null;
         const { email, password } = parsed.data;
 
         const rateLimit = checkRateLimit(`login:${email}`, LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW_MS);
-        if (!rateLimit.allowed) {
-          console.error("[auth] TEMP-DIAG rate limited", email);
-          return null;
-        }
+        if (!rateLimit.allowed) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) {
-          console.error("[auth] TEMP-DIAG no user found for", email);
-          return null;
-        }
+        if (!user) return null;
 
         const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-        if (!passwordMatches) {
-          console.error("[auth] TEMP-DIAG password mismatch for", email);
-          return null;
-        }
+        if (!passwordMatches) return null;
 
         return { id: user.id, name: user.name, email: user.email };
       },

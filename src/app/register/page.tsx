@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signInWithRetry } from "@/lib/auth/sign-in-with-retry";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,11 +42,7 @@ export default function RegisterPage() {
         return;
       }
 
-      const signInResult = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
+      const signInResult = await signInWithRetry(email, password);
 
       if (signInResult?.error) {
         router.push("/login");
