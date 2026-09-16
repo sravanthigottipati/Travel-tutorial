@@ -9,8 +9,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Pooled (pgbouncer, transaction mode) — used for normal app queries.
+  url       = env("DATABASE_URL")
+  // Direct, non-pooled connection — required for migrations, since
+  // pgbouncer's transaction mode doesn't support the prepared statements
+  // `prisma migrate` needs. Supabase's recommended Prisma setup.
+  directUrl = env("DIRECT_URL")
 }
 
 model User {

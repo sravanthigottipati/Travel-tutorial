@@ -4,20 +4,27 @@ Target: **Vercel** (application) + **Supabase** (PostgreSQL), per the project
 documentary's Section 25. This document is the Section 25.1 production
 checklist, made concrete for this codebase.
 
-None of the steps below have been run against a real Vercel/Supabase
-account — they need your credentials, which this session doesn't have.
-Everything on the codebase side (migrations, config, CI) is ready; this
-is the remaining manual part.
+Vercel + Supabase are now connected for local development (see `.env`).
+The remaining steps below are for the actual Vercel deployment, which
+still needs to be done through your Vercel account.
 
 ## 1. Provision Supabase
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. Copy the **connection string** (Project Settings → Database →
-   Connection string → URI). Use the **pooled** connection string (port
-   6543, `?pgbouncer=true`) for the app's `DATABASE_URL` if you expect
-   concurrent serverless function invocations — Vercel functions are
-   short-lived and can exhaust direct Postgres connections quickly
-   without a pooler.
+1. Create a project at [supabase.com](https://supabase.com) (done).
+2. From the project's **Connect** button → **ORM** tab → **Prisma**,
+   copy both connection strings it gives you:
+   - `DATABASE_URL` — the pooled (pgbouncer, transaction mode, port 6543)
+     connection, used for normal app queries. Vercel functions are
+     short-lived and can exhaust direct Postgres connections quickly
+     without a pooler.
+   - `DIRECT_URL` — the non-pooled (session mode, port 5432) connection.
+     Prisma needs this for `migrate deploy`/`migrate dev` — pgbouncer's
+     transaction mode doesn't support the prepared statements migrations
+     use. See `datasource db` in `schema.prisma`.
+3. Replace `[YOUR-PASSWORD]` in both with your actual database password —
+   and if it contains any of `@ : / ? #`, percent-encode it (e.g. `@` ->
+   `%40`), since those characters are structurally meaningful inside a
+   connection string URI and will otherwise break parsing.
 
 ## 2. Run the initial migration
 
@@ -25,12 +32,13 @@ The schema has a real migration history (`prisma/migrations/`), not just
 `db push` — this is what production deploys should use:
 
 ```bash
-DATABASE_URL="<your supabase connection string>" npx prisma migrate deploy
+npm run db:migrate:deploy
 ```
 
-Run this once before the first deploy, and again after any future schema
-change (`prisma migrate dev` locally to create a new migration file first,
-then `migrate deploy` against production).
+(Reads `DATABASE_URL`/`DIRECT_URL` from `.env`.) Run this once before the
+first deploy, and again after any future schema change (`prisma migrate
+dev` locally to create a new migration file first, then `migrate deploy`
+against production).
 
 ## 3. Set environment variables in Vercel
 

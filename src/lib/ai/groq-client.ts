@@ -1,7 +1,16 @@
 import Groq from "groq-sdk";
 
 // Model hosted on Groq. See project documentary Section 9 (Technology Stack).
-export const GROQ_MODEL = "qwen/qwen3-32b";
+//
+// This is "qwen/qwen3.8-27b" — confirmed against Groq's live /models
+// endpoint. The documentary's own text originally said "Qwen 3.8 27B";
+// during an earlier documentation-cleanup pass that got "corrected" to
+// "Qwen3 32B" on the assumption it was a typo for a real Qwen release,
+// since no such model was findable through general knowledge at the
+// time. It wasn't a typo — Groq genuinely hosts a model with this exact
+// name. Lesson: verify a live provider's model catalog directly rather
+// than reasoning from general knowledge about what "should" exist.
+export const GROQ_MODEL = "qwen/qwen3.8-27b";
 
 const PLACEHOLDER_VALUES = new Set([
   "",
