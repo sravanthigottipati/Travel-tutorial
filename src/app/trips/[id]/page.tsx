@@ -42,7 +42,10 @@ export default async function TripDashboardPage({
         <CardContent className="flex flex-wrap gap-3">
           <GenerateItineraryButton tripId={trip.id} hasItinerary={hasItinerary} />
           {hasItinerary && (
-            <Button variant="outline" render={<Link href={`/trips/${trip.id}/itinerary`}>View itinerary</Link>} nativeButton={false} />
+            <>
+              <Button variant="outline" render={<Link href={`/trips/${trip.id}/itinerary`}>View itinerary</Link>} nativeButton={false} />
+              <Button variant="outline" render={<Link href={`/trips/${trip.id}/budget`}>View budget</Link>} nativeButton={false} />
+            </>
           )}
           <DeleteTripButton tripId={trip.id} />
         </CardContent>

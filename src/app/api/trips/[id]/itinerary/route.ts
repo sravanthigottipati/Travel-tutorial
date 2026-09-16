@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { generateItinerary } from "@/lib/planner/itinerary-engine";
+import { recalculateTripBudget } from "@/lib/budget/recalculate-trip-budget";
 import { TripStatus } from "@/generated/prisma/client";
 
 async function getOwnedTrip(userId: string, tripId: string) {
@@ -60,13 +61,16 @@ export async function POST(
     prisma.trip.update({ where: { id: trip.id }, data: { status: TripStatus.PLANNED } }),
   ]);
 
-  const itineraries = await prisma.itinerary.findMany({
-    where: { tripId: trip.id },
-    orderBy: { dayNumber: "asc" },
-    include: { activities: { orderBy: { sortOrder: "asc" } } },
-  });
+  const [itineraries, budget] = await Promise.all([
+    prisma.itinerary.findMany({
+      where: { tripId: trip.id },
+      orderBy: { dayNumber: "asc" },
+      include: { activities: { orderBy: { sortOrder: "asc" } } },
+    }),
+    recalculateTripBudget(trip.id),
+  ]);
 
-  return NextResponse.json({ itineraries, totalEstimatedCost: plan.totalEstimatedCost, warnings: plan.warnings });
+  return NextResponse.json({ itineraries, budget, warnings: plan.warnings });
 }
 
 const activityInput = z.object({
@@ -140,11 +144,14 @@ export async function PUT(
     ),
   ]);
 
-  const itineraries = await prisma.itinerary.findMany({
-    where: { tripId: trip.id },
-    orderBy: { dayNumber: "asc" },
-    include: { activities: { orderBy: { sortOrder: "asc" } } },
-  });
+  const [itineraries, budget] = await Promise.all([
+    prisma.itinerary.findMany({
+      where: { tripId: trip.id },
+      orderBy: { dayNumber: "asc" },
+      include: { activities: { orderBy: { sortOrder: "asc" } } },
+    }),
+    recalculateTripBudget(trip.id),
+  ]);
 
-  return NextResponse.json({ itineraries });
+  return NextResponse.json({ itineraries, budget });
 }
