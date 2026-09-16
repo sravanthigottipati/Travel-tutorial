@@ -1,26 +1,31 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
-import { Button } from "@/components/ui/button";
+import { prisma } from "@/lib/db/prisma";
+import { ChatRole } from "@/generated/prisma/client";
+import { ChatWindow } from "./chat-window";
 
 export default async function ChatPage() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     redirect("/login");
   }
 
+  const latestSession = await prisma.chatSession.findFirst({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "desc" },
+    include: { messages: { orderBy: { createdAt: "asc" } } },
+  });
+
+  const initialMessages =
+    latestSession?.messages.map((m) => ({
+      role: m.role === ChatRole.USER ? ("user" as const) : ("assistant" as const),
+      content: m.message,
+    })) ?? [];
+
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-      <h1 className="text-xl font-semibold">Welcome, {session.user.name}.</h1>
-      <p className="max-w-md text-sm text-muted-foreground">
-        The conversational trip planner lands in Phase 3. For now, you&apos;re
-        signed in and your session is working.
-      </p>
-      <Button
-        variant="outline"
-        nativeButton={false}
-        render={<Link href="/profile">Go to profile</Link>}
-      />
-    </main>
+    <ChatWindow
+      initialSessionId={latestSession?.id ?? null}
+      initialMessages={initialMessages}
+    />
   );
 }
