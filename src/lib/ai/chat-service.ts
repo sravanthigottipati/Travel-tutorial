@@ -18,7 +18,11 @@ function missingFields(context: TripContext): string[] {
   return REQUIRED_FIELDS.filter((field) => !context[field]);
 }
 
-function buildSystemPrompt(context: TripContext, intent: Intent): string {
+function buildSystemPrompt(
+  context: TripContext,
+  intent: Intent,
+  recommendations: string | null
+): string {
   const missing = missingFields(context);
   return [
     "You are the AI Travel Planner assistant. Help the user plan trips: " +
@@ -29,7 +33,12 @@ function buildSystemPrompt(context: TripContext, intent: Intent): string {
     missing.length > 0
       ? `Missing essential info: ${missing.join(", ")}. Ask for it only if needed for this reply — don't repeat questions already answered.`
       : "All essential trip fields are known — focus on being helpful rather than asking more questions.",
-  ].join("\n");
+    recommendations
+      ? `Recommendation Engine results (ground your answer in these — don't invent other places): ${recommendations}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 // Splits stub text into small chunks so the client-side streaming UI behaves
@@ -42,7 +51,12 @@ async function* chunkStubText(text: string): AsyncGenerator<string> {
   }
 }
 
-function stubReply(message: string, context: TripContext, intent: Intent): string {
+function stubReply(
+  message: string,
+  context: TripContext,
+  intent: Intent,
+  recommendations: string | null
+): string {
   const missing = missingFields(context);
   const knownSummary =
     Object.keys(context).filter((k) => k !== "interests" || context.interests?.length).length > 1
@@ -53,6 +67,7 @@ function stubReply(message: string, context: TripContext, intent: Intent): strin
     `(Stub response — no GROQ_API_KEY configured yet.) ` +
     `I heard: "${message}". Detected intent: ${intent}. Known trip context: ${knownSummary}.` +
     (missing.length > 0 ? ` Still missing: ${missing.join(", ")}.` : "") +
+    (recommendations ? ` Recommendation Engine results: ${recommendations}.` : "") +
     ` Once a real Groq API key is set in .env, this will be answered by ${GROQ_MODEL}.`
   );
 }
@@ -65,10 +80,11 @@ export async function* streamAssistantReply(
   history: ChatTurn[],
   message: string,
   context: TripContext,
-  intent: Intent
+  intent: Intent,
+  recommendations: string | null = null
 ): AsyncGenerator<string> {
   if (isGroqStubbed()) {
-    yield* chunkStubText(stubReply(message, context, intent));
+    yield* chunkStubText(stubReply(message, context, intent, recommendations));
     return;
   }
 
@@ -77,7 +93,7 @@ export async function* streamAssistantReply(
     model: GROQ_MODEL,
     stream: true,
     messages: [
-      { role: "system", content: buildSystemPrompt(context, intent) },
+      { role: "system", content: buildSystemPrompt(context, intent, recommendations) },
       ...history.map((turn) => ({ role: turn.role, content: turn.content })),
       { role: "user", content: message },
     ],

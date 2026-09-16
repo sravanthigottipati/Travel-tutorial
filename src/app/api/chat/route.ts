@@ -5,6 +5,10 @@ import { prisma } from "@/lib/db/prisma";
 import { streamAssistantReply, type ChatTurn } from "@/lib/ai/chat-service";
 import { extractTripUpdate } from "@/lib/ai/extract-trip-context";
 import { mergeTripContext, parseStoredTripContext } from "@/lib/ai/trip-context";
+import {
+  recommendDestinations,
+  recommendPlaces,
+} from "@/lib/recommendations/recommendation-engine";
 import { ChatRole } from "@/generated/prisma/client";
 
 const bodySchema = z.object({
@@ -62,13 +66,34 @@ export async function POST(request: Request) {
     data: { context: mergedContext },
   });
 
+  let recommendations: string | null = null;
+  if (intent === "recommend") {
+    if (mergedContext.destination) {
+      const places = recommendPlaces(mergedContext.destination, mergedContext.interests ?? []);
+      recommendations = places
+        .map((p) => `${p.name} (${p.category}, cost ${p.estimatedCost})`)
+        .join("; ");
+    } else {
+      const destinations = recommendDestinations(mergedContext.interests ?? []);
+      recommendations = destinations
+        .map((d) => `${d.destination} — ${d.reason}`)
+        .join("; ");
+    }
+  }
+
   const encoder = new TextEncoder();
   let assistantText = "";
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const chunk of streamAssistantReply(history, message, mergedContext, intent)) {
+        for await (const chunk of streamAssistantReply(
+          history,
+          message,
+          mergedContext,
+          intent,
+          recommendations
+        )) {
           assistantText += chunk;
           controller.enqueue(encoder.encode(chunk));
         }

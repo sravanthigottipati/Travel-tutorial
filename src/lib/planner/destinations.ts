@@ -101,3 +101,8 @@ export function getCandidatePlaces(destination: string): CandidatePlace[] {
   const key = destination.trim().toLowerCase() as (typeof KNOWN_DESTINATIONS)[number];
   return PLACES[key] ?? GENERIC_PLACES;
 }
+
+// Destinations with real curated place data (as opposed to the generic
+// fallback) — the subset worth recommending *by name*, since a
+// recommendation should be backed by actual reasons, not a guess.
+export const CURATED_DESTINATIONS = Object.keys(PLACES) as (keyof typeof PLACES)[];
