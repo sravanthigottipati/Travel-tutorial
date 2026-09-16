@@ -5,10 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { streamAssistantReply, type ChatTurn } from "@/lib/ai/chat-service";
 import { extractTripUpdate } from "@/lib/ai/extract-trip-context";
 import { mergeTripContext, parseStoredTripContext } from "@/lib/ai/trip-context";
-import {
-  recommendDestinations,
-  recommendPlaces,
-} from "@/lib/recommendations/recommendation-engine";
+import { tools } from "@/lib/ai/tools";
 import { decideAndRunTool } from "@/lib/ai/agent";
 import { ChatRole } from "@/generated/prisma/client";
 
@@ -69,19 +66,16 @@ export async function POST(request: Request) {
     data: { context: mergedContext },
   });
 
+  // searchDestination/searchPlaces handle Section 17/Phase 10 personalization
+  // internally (profile-interest fallback, exclude visited destinations) —
+  // see tools.ts, so this route doesn't duplicate that logic.
   let recommendations: string | null = null;
   if (intent === "recommend") {
-    if (mergedContext.destination) {
-      const places = recommendPlaces(mergedContext.destination, mergedContext.interests ?? []);
-      recommendations = places
-        .map((p) => `${p.name} (${p.category}, cost ${p.estimatedCost})`)
-        .join("; ");
-    } else {
-      const destinations = recommendDestinations(mergedContext.interests ?? []);
-      recommendations = destinations
-        .map((d) => `${d.destination} — ${d.reason}`)
-        .join("; ");
-    }
+    const interests = mergedContext.interests ?? [];
+    const ctx = { userId };
+    recommendations = mergedContext.destination
+      ? (await tools.searchPlaces.run(ctx, { destination: mergedContext.destination, interests })).summary
+      : (await tools.searchDestination.run(ctx, { interests })).summary;
   }
 
   // Phase 9: let the orchestrator (real Groq tool-calling, or a heuristic

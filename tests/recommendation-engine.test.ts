@@ -27,6 +27,18 @@ describe("recommendDestinations", () => {
     const results = recommendDestinations([], 2);
     expect(results).toHaveLength(2);
   });
+
+  it("Phase 10: never recommends an excluded (already-visited) destination", () => {
+    const results = recommendDestinations(["beaches"], 5, ["Goa"]);
+    expect(results.map((r) => r.destination)).not.toContain("Goa");
+  });
+
+  it("Phase 10: exclude match is case-insensitive", () => {
+    const results = recommendDestinations([], 10, ["goa", "PARIS"]);
+    const names = results.map((r) => r.destination);
+    expect(names).not.toContain("Goa");
+    expect(names).not.toContain("Paris");
+  });
 });
 
 describe("recommendPlaces", () => {

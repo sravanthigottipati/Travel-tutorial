@@ -4,6 +4,7 @@ import { createTrip, generateItineraryForTrip } from "@/lib/planner/trip-service
 import { removeActivity, addActivity, ItineraryModificationError } from "@/lib/planner/itinerary-modification";
 import { recalculateTripBudget } from "@/lib/budget/recalculate-trip-budget";
 import { recommendDestinations, recommendPlaces } from "@/lib/recommendations/recommendation-engine";
+import { getPersonalizationSignal } from "@/lib/recommendations/personalization";
 import { getDestinationCenter } from "@/lib/planner/destinations";
 import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
 
@@ -70,19 +71,30 @@ export const tools = {
   },
 
   searchDestination: {
-    description: "Recommend destinations matching a list of interests (Section 17).",
+    description:
+      "Recommend destinations matching a list of interests (Section 17). Automatically " +
+      "personalized (Phase 10): falls back to the user's stored profile interests when " +
+      "none are given, and never recommends a destination they've already visited.",
     args: searchDestinationArgs,
-    async run(_ctx: ToolContext, args: z.infer<typeof searchDestinationArgs>) {
-      const results = recommendDestinations(args.interests);
+    async run(ctx: ToolContext, args: z.infer<typeof searchDestinationArgs>) {
+      const personalization = await getPersonalizationSignal(ctx.userId);
+      const interests = args.interests.length > 0 ? args.interests : personalization.interests;
+      const results = recommendDestinations(interests, 5, personalization.visitedDestinations);
       return { results, summary: results.map((r) => `${r.destination} (${r.reason})`).join("; ") || "No matches." };
     },
   },
 
   searchPlaces: {
-    description: "Recommend places/activities within a destination matching a list of interests.",
+    description:
+      "Recommend places/activities within a destination matching a list of interests. " +
+      "Falls back to the user's stored profile interests when none are given (Phase 10).",
     args: searchPlacesArgs,
-    async run(_ctx: ToolContext, args: z.infer<typeof searchPlacesArgs>) {
-      const results = recommendPlaces(args.destination, args.interests);
+    async run(ctx: ToolContext, args: z.infer<typeof searchPlacesArgs>) {
+      const interests =
+        args.interests.length > 0
+          ? args.interests
+          : (await getPersonalizationSignal(ctx.userId)).interests;
+      const results = recommendPlaces(args.destination, interests);
       return {
         results,
         summary: results.map((p) => `${p.name} (${p.category}, cost ${p.estimatedCost})`).join("; "),

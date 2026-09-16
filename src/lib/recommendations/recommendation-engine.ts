@@ -6,9 +6,10 @@ import {
 
 // Rules-and-filtering recommendation engine (Section 17): matches user
 // requirements — interests, budget — against destination/place attributes.
-// "The first implementation can use rules and filtering; later phases can
-// add embeddings and semantic retrieval" (Phase 10, personalization) —
-// deliberately not attempted here.
+// Embeddings/semantic retrieval remain deliberately unimplemented — see
+// personalization.ts for why. Phase 10's other half, historical trips and
+// stored preferences, is wired in via the `exclude` param and by callers
+// (chat route, tools.ts) merging in the user's profile interests.
 
 export type DestinationRecommendation = {
   destination: string;
@@ -29,14 +30,20 @@ function normalize(interests: string[]): string[] {
 // Ranks known destinations by how many of the traveler's interests their
 // curated places cover. Only considers destinations with real curated data
 // (CURATED_DESTINATIONS) — a recommendation should come with a reason, not
-// a guess about a destination we know nothing about.
+// a guess about a destination we know nothing about. `exclude` (typically
+// the user's already-visited destinations — Phase 10 personalization)
+// drops those from consideration entirely, rather than just ranking them
+// lower, so a returning user isn't repeatedly pointed back to trips
+// they've already taken.
 export function recommendDestinations(
   interests: string[],
-  limit = 5
+  limit = 5,
+  exclude: string[] = []
 ): DestinationRecommendation[] {
   const wanted = normalize(interests);
+  const excluded = new Set(normalize(exclude));
 
-  const scored = CURATED_DESTINATIONS.map((destination) => {
+  const scored = CURATED_DESTINATIONS.filter((d) => !excluded.has(d)).map((destination) => {
     const places = getCandidatePlaces(destination);
     const categoriesOffered = new Set(places.map((p) => p.category));
     const matchedInterests = wanted.filter((i) => categoriesOffered.has(i as CandidatePlace["category"]));
