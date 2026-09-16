@@ -9,5 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // tests/e2e is Playwright's territory (*.spec.ts), not Vitest's.
+    exclude: ["**/node_modules/**", "**/tests/e2e/**"],
   },
 });
