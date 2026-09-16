@@ -3,6 +3,8 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { streamAssistantReply, type ChatTurn } from "@/lib/ai/chat-service";
+import { extractTripUpdate } from "@/lib/ai/extract-trip-context";
+import { mergeTripContext, parseStoredTripContext } from "@/lib/ai/trip-context";
 import { ChatRole } from "@/generated/prisma/client";
 
 const bodySchema = z.object({
@@ -51,13 +53,22 @@ export async function POST(request: Request) {
     data: { sessionId: chatSession.id, role: ChatRole.USER, message },
   });
 
+  const currentContext = parseStoredTripContext(chatSession.context);
+  const { intent, update } = await extractTripUpdate(message, currentContext);
+  const mergedContext = mergeTripContext(currentContext, update);
+
+  await prisma.chatSession.update({
+    where: { id: chatSession.id },
+    data: { context: mergedContext },
+  });
+
   const encoder = new TextEncoder();
   let assistantText = "";
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const chunk of streamAssistantReply(history, message)) {
+        for await (const chunk of streamAssistantReply(history, message, mergedContext, intent)) {
           assistantText += chunk;
           controller.enqueue(encoder.encode(chunk));
         }
@@ -87,6 +98,8 @@ export async function POST(request: Request) {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "X-Session-Id": chatSession.id,
+      "X-Intent": intent,
+      "X-Trip-Context": encodeURIComponent(JSON.stringify(mergedContext)),
       "Cache-Control": "no-store",
     },
   });

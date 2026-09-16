@@ -126,6 +126,11 @@ model ChatSession {
   id        String   @id @default(cuid())
   userId    String   @map("user_id")
   tripId    String?  @map("trip_id")
+  // Structured trip context extracted from the conversation so far (see
+  // Section 14, Conversation and Memory Design). Shape is TripContext
+  // (src/lib/ai/trip-context.ts), validated with Zod on every read/write —
+  // never trusted as-is since it round-trips through AI-generated JSON.
+  context   Json?
   createdAt DateTime @default(now()) @map("created_at")
 
   user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)

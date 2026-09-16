@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "cn";
+import { emptyTripContext, type TripContext } from "@/lib/ai/trip-context";
+import { TripContextPanel } from "./trip-context-panel";
 
 type Message = {
   role: "user" | "assistant";
@@ -13,11 +15,13 @@ type Message = {
 type Props = {
   initialSessionId: string | null;
   initialMessages: Message[];
+  initialContext: TripContext;
 };
 
-export function ChatWindow({ initialSessionId, initialMessages }: Props) {
+export function ChatWindow({ initialSessionId, initialMessages, initialContext }: Props) {
   const [sessionId, setSessionId] = useState(initialSessionId);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [context, setContext] = useState<TripContext>(initialContext ?? emptyTripContext);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -52,6 +56,15 @@ export function ChatWindow({ initialSessionId, initialMessages }: Props) {
       const returnedSessionId = res.headers.get("X-Session-Id");
       if (returnedSessionId) setSessionId(returnedSessionId);
 
+      const contextHeader = res.headers.get("X-Trip-Context");
+      if (contextHeader) {
+        try {
+          setContext(JSON.parse(decodeURIComponent(contextHeader)));
+        } catch {
+          // ignore malformed header, keep previous context
+        }
+      }
+
       if (!res.body) throw new Error("No response body");
 
       const reader = res.body.getReader();
@@ -84,40 +97,43 @@ export function ChatWindow({ initialSessionId, initialMessages }: Props) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-6">
-      <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto">
-        {messages.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Tell me about the trip you&apos;re planning — destination, dates,
-            budget, who&apos;s coming, and what you like to do.
-          </p>
-        )}
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={cn(
-              "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
-              m.role === "user"
-                ? "self-end bg-primary text-primary-foreground"
-                : "self-start bg-muted text-foreground"
-            )}
-          >
-            {m.content || (m.role === "assistant" && isSending ? "…" : "")}
-          </div>
-        ))}
-      </div>
+    <div className="flex flex-1">
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-6">
+        <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto">
+          {messages.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Tell me about the trip you&apos;re planning — destination, dates,
+              budget, who&apos;s coming, and what you like to do.
+            </p>
+          )}
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={cn(
+                "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
+                m.role === "user"
+                  ? "self-end bg-primary text-primary-foreground"
+                  : "self-start bg-muted text-foreground"
+              )}
+            >
+              {m.content || (m.role === "assistant" && isSending ? "…" : "")}
+            </div>
+          ))}
+        </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Plan a 4-day Goa trip for 3 people under ₹20,000…"
-          disabled={isSending}
-        />
-        <Button type="submit" disabled={isSending || !input.trim()}>
-          Send
-        </Button>
-      </form>
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Plan a 4-day Goa trip for 3 people under ₹20,000…"
+            disabled={isSending}
+          />
+          <Button type="submit" disabled={isSending || !input.trim()}>
+            Send
+          </Button>
+        </form>
+      </div>
+      <TripContextPanel context={context} />
     </div>
   );
 }

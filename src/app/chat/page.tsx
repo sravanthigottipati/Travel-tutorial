@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { ChatRole } from "@/generated/prisma/client";
+import { parseStoredTripContext } from "@/lib/ai/trip-context";
 import { ChatWindow } from "./chat-window";
 
 export default async function ChatPage() {
@@ -26,6 +27,7 @@ export default async function ChatPage() {
     <ChatWindow
       initialSessionId={latestSession?.id ?? null}
       initialMessages={initialMessages}
+      initialContext={parseStoredTripContext(latestSession?.context)}
     />
   );
 }
