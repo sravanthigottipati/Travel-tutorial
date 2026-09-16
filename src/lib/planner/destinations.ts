@@ -49,6 +49,24 @@ export const KNOWN_DESTINATIONS = [
   "bangkok",
 ] as const;
 
+// Reference coordinates for curated destinations, used for the map/weather
+// view (Section 18). NOT from Open-Meteo's free geocoding endpoint — it
+// misidentifies these names (e.g. "Goa" resolves to Genoa, Italy, and a
+// small Filipino municipality, ahead of the actual Indian state, by its
+// ranking), so these are well-established reference points instead, kept
+// alongside the place data they already stand in for a real Places API.
+export const DESTINATION_CENTERS: Partial<Record<(typeof KNOWN_DESTINATIONS)[number], { lat: number; lon: number; label: string }>> = {
+  goa: { lat: 15.4909, lon: 73.8278, label: "Panaji, Goa" },
+  kerala: { lat: 9.9312, lon: 76.2673, label: "Kochi, Kerala" },
+  manali: { lat: 32.2432, lon: 77.1892, label: "Manali, Himachal Pradesh" },
+  paris: { lat: 48.8566, lon: 2.3522, label: "Paris" },
+};
+
+export function getDestinationCenter(destination: string) {
+  const key = destination.trim().toLowerCase() as (typeof KNOWN_DESTINATIONS)[number];
+  return DESTINATION_CENTERS[key] ?? null;
+}
+
 const PLACES: Partial<Record<(typeof KNOWN_DESTINATIONS)[number], CandidatePlace[]>> = {
   goa: [
     { name: "Baga Beach", category: "beaches", estimatedCost: 0, durationHours: 3 },

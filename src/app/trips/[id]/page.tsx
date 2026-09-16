@@ -47,6 +47,7 @@ export default async function TripDashboardPage({
               <Button variant="outline" render={<Link href={`/trips/${trip.id}/budget`}>View budget</Link>} nativeButton={false} />
             </>
           )}
+          <Button variant="outline" render={<Link href={`/trips/${trip.id}/map`}>Map & weather</Link>} nativeButton={false} />
           <DeleteTripButton tripId={trip.id} />
         </CardContent>
       </Card>
