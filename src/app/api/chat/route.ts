@@ -7,7 +7,14 @@ import { extractTripUpdate } from "@/lib/ai/extract-trip-context";
 import { mergeTripContext, parseStoredTripContext } from "@/lib/ai/trip-context";
 import { tools } from "@/lib/ai/tools";
 import { decideAndRunTool } from "@/lib/ai/agent";
+import { checkRateLimit, rateLimitResponseHeaders } from "@/lib/security/rate-limit";
 import { ChatRole } from "@/generated/prisma/client";
+
+// Section 22: "Apply rate limiting to public AI endpoints." Generous enough
+// for genuine back-and-forth conversation, tight enough to cap runaway
+// Groq API cost from a single account.
+const CHAT_RATE_LIMIT = 20;
+const CHAT_RATE_WINDOW_MS = 60_000;
 
 const bodySchema = z.object({
   // The client sends `sessionId: null` for a brand-new chat (React state
@@ -22,6 +29,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const userId = session.user.id;
+
+  const rateLimit = checkRateLimit(`chat:${userId}`, CHAT_RATE_LIMIT, CHAT_RATE_WINDOW_MS);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many messages. Please slow down." },
+      { status: 429, headers: rateLimitResponseHeaders(rateLimit) }
+    );
+  }
 
   const body = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(body);

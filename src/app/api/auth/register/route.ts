@@ -2,8 +2,26 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 import { registerSchema } from "@/lib/auth/credentials";
+import { checkRateLimit, getClientIp, rateLimitResponseHeaders } from "@/lib/security/rate-limit";
+
+// Public, unauthenticated endpoint — rate limit by IP to slow down
+// automated account-creation spam (Section 22).
+const REGISTER_RATE_LIMIT = 5;
+const REGISTER_RATE_WINDOW_MS = 60 * 60_000;
 
 export async function POST(request: Request) {
+  const rateLimit = checkRateLimit(
+    `register:${getClientIp(request)}`,
+    REGISTER_RATE_LIMIT,
+    REGISTER_RATE_WINDOW_MS
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many accounts created from this network. Try again later." },
+      { status: 429, headers: rateLimitResponseHeaders(rateLimit) }
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = registerSchema.safeParse(body);
 

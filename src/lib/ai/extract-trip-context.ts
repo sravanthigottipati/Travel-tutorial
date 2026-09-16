@@ -67,16 +67,21 @@ function heuristicExtract(message: string, current: TripContext): ExtractionResu
   const lower = message.toLowerCase();
   const update: Partial<TripContext> = {};
 
-  const durationDays = extractNumber(lower, /(\d+|one|two|three|four|five|six|seven|eight|nine|ten)[\s-]*day/);
+  // Negative lookbehind (?<!-) so "-3 day trip" isn't misread as 3 days —
+  // \d+ alone doesn't include the sign, so without this a negative/nonsense
+  // duration silently becomes a confident (wrong) positive extraction,
+  // exactly what Table 18's "invalid or impossible request" scenario warns
+  // against.
+  const durationDays = extractNumber(lower, /(?<!-)(\d+|one|two|three|four|five|six|seven|eight|nine|ten)[\s-]*day/);
   if (durationDays) update.durationDays = durationDays;
 
   const travelers = extractNumber(
     lower,
-    /(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:people|travelers|travellers|persons|pax|of us)/
+    /(?<!-)(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:people|travelers|travellers|persons|pax|of us)/
   );
   if (travelers) update.travelers = travelers;
 
-  const budgetMatch = lower.match(/(?:₹|rs\.?|inr)\s?([\d,]+)/);
+  const budgetMatch = lower.match(/(?<!-)(?:₹|rs\.?|inr)\s?([\d,]+)/);
   if (budgetMatch) {
     const parsedBudget = parseInt(budgetMatch[1].replace(/,/g, ""), 10);
     if (!Number.isNaN(parsedBudget)) update.budget = parsedBudget;
