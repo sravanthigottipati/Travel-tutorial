@@ -19,6 +19,26 @@ function missingFields(context: TripContext): string[] {
   return REQUIRED_FIELDS.filter((field) => !context[field]);
 }
 
+// Found live: the model would sometimes deflect general-knowledge
+// questions ("what's the currency in Japan", "is X safe to visit",
+// "what's the best season for Y") with "I don't have data regarding
+// this" — overcautious, since a genuinely helpful travel assistant
+// should just answer these from its own knowledge, exactly like any
+// other Groq/Gemini chat would. The instruction elsewhere to "ground
+// your answer" and "don't invent facts" is specifically about backend
+// tool results (place/budget data) — it was never meant to make the
+// model refuse ordinary general knowledge, but without saying so
+// explicitly, the model conflated the two.
+const GENERAL_KNOWLEDGE_INSTRUCTION =
+  "The user may ask general-knowledge questions that aren't about their specific trip data " +
+  "(e.g. a destination's currency, language, visa rules, weather patterns, culture, history, " +
+  "safety, or any other real-world fact). Answer these directly and helpfully from your own " +
+  "knowledge — never say you don't have data or deflect to \"I'm just a travel planner.\" The " +
+  "instruction to ground answers in backend results only applies when backend results are " +
+  "actually provided below; it doesn't mean refusing ordinary questions you already know the " +
+  "answer to. Only add a brief caveat when something is truly time-sensitive (e.g. live prices, " +
+  "today's weather, current events) and your knowledge could be outdated.";
+
 const CREATOR_PROFILE_INSTRUCTION =
   "If the user asks who built/made/created/developed you or this app, who the developer or " +
   "creator is, or similar meta questions about the app's origin, don't deflect and don't say " +
@@ -42,6 +62,7 @@ function buildSystemPrompt(
     "You are the AI Travel Planner assistant. Help the user plan trips: " +
       "understand their destination, duration, travelers, budget and interests. " +
       "Keep answers concise and practical.",
+    GENERAL_KNOWLEDGE_INSTRUCTION,
     CREATOR_PROFILE_INSTRUCTION,
     `Detected intent: ${intent}.`,
     `Known trip context so far: ${JSON.stringify(context)}.`,
