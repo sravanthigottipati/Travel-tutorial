@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileForm } from "./profile-form";
+import { ThemeToggleLoader } from "./theme-toggle-loader";
 import { SignOutButton } from "@/components/sign-out-button";
 
 export default async function ProfilePage() {
@@ -34,6 +35,16 @@ export default async function ProfilePage() {
         </CardHeader>
         <CardContent>
           <SignOutButton />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>Choose how the app looks on this device.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeToggleLoader />
         </CardContent>
       </Card>
 

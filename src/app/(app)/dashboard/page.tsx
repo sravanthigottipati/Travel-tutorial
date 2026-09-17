@@ -93,25 +93,25 @@ export default async function DashboardPage() {
                   </CardHeader>
                 </Card>
               </Link>
-              <div className="flex gap-3 text-sm">
-                <Link
-                  href={`/trips/${latestTrip.id}/itinerary`}
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  Itinerary
-                </Link>
-                <Link
-                  href={`/trips/${latestTrip.id}/budget`}
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  Budget
-                </Link>
-                <Link
-                  href={`/trips/${latestTrip.id}/map`}
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  Map & weather
-                </Link>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href={`/trips/${latestTrip.id}/itinerary`}>Itinerary</Link>}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href={`/trips/${latestTrip.id}/budget`}>Budget</Link>}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href={`/trips/${latestTrip.id}/map`}>Map & weather</Link>}
+                />
               </div>
             </div>
           )}
