@@ -17,6 +17,7 @@ import { prisma } from "@/lib/db/prisma";
 export type PersonalizationSignal = {
   interests: string[];
   foodPreference: string | null;
+  travelStyle: string | null;
   visitedDestinations: string[];
 };
 
@@ -33,6 +34,7 @@ export async function getPersonalizationSignal(userId: string): Promise<Personal
   return {
     interests: preferences?.interests ?? [],
     foodPreference: preferences?.foodPreference ?? null,
+    travelStyle: preferences?.travelStyle ?? null,
     visitedDestinations: trips.map((t) => t.destination),
   };
 }

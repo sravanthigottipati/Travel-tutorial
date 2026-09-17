@@ -4,11 +4,12 @@ import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { streamAssistantReply, type ChatTurn } from "@/lib/ai/chat-service";
 import { extractTripUpdate } from "@/lib/ai/extract-trip-context";
-import { mergeTripContext, parseStoredTripContext } from "@/lib/ai/trip-context";
+import { mergeTripContext, parseStoredTripContext, emptyTripContext } from "@/lib/ai/trip-context";
 import type { Intent } from "@/lib/ai/intent";
 import { tools } from "@/lib/ai/tools";
 import { decideAndRunTool } from "@/lib/ai/agent";
 import { checkRateLimit, rateLimitResponseHeaders } from "@/lib/security/rate-limit";
+import { getPersonalizationSignal } from "@/lib/recommendations/personalization";
 import { ChatRole } from "@/generated/prisma/client";
 
 // Section 22: "Apply rate limiting to public AI endpoints." Generous enough
@@ -73,7 +74,21 @@ export async function POST(request: Request) {
     data: { sessionId: chatSession.id, role: ChatRole.USER, message },
   });
 
-  const currentContext = parseStoredTripContext(chatSession.context);
+  const personalization = await getPersonalizationSignal(userId);
+
+  // A brand-new session starts from the user's saved profile preferences
+  // (interests, food preference) instead of a blank slate — otherwise
+  // every new conversation forgot what the Profile page already knows
+  // about them until they repeated it in chat. Existing sessions already
+  // carry this forward via their persisted context, so it only needs
+  // seeding once, here.
+  const currentContext = existingSession
+    ? parseStoredTripContext(chatSession.context)
+    : mergeTripContext(emptyTripContext, {
+        interests: personalization.interests,
+        foodPreference: personalization.foodPreference ?? undefined,
+      });
+
   const { intent, update } = await extractTripUpdate(message, currentContext);
   const mergedContext = mergeTripContext(currentContext, update);
 
@@ -153,7 +168,8 @@ export async function POST(request: Request) {
           message,
           mergedContext,
           intent,
-          groundingNote
+          groundingNote,
+          personalization.travelStyle
         )) {
           assistantText += chunk;
           controller.enqueue(encoder.encode(chunk));

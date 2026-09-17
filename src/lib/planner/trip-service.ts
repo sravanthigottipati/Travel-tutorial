@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { generateItinerary } from "@/lib/planner/itinerary-engine";
 import { recalculateTripBudget } from "@/lib/budget/recalculate-trip-budget";
+import { getPersonalizationSignal } from "@/lib/recommendations/personalization";
 import { TripStatus } from "@/generated/prisma/client";
 import type { TripContext } from "@/lib/ai/trip-context";
 
@@ -31,12 +32,19 @@ export async function createTrip(
 export async function generateItineraryForTrip(tripId: string) {
   const trip = await prisma.trip.findUniqueOrThrow({ where: { id: tripId } });
 
+  // Was hardcoded to `interests: []` — the deterministic engine never
+  // actually prioritized activities by what the user said they like on
+  // their Profile page, regardless of how the trip was created (manual
+  // form, chat, or this same function's other caller, the generateItinerary
+  // tool). Every trip got the same category-neutral ordering.
+  const personalization = await getPersonalizationSignal(trip.userId);
+
   const plan = generateItinerary({
     destination: trip.destination,
     durationDays: trip.durationDays,
     travelers: trip.travelers,
     budget: Number(trip.budget),
-    interests: [],
+    interests: personalization.interests,
   });
 
   await prisma.$transaction([

@@ -34,7 +34,8 @@ const CREATOR_PROFILE_INSTRUCTION =
 function buildSystemPrompt(
   context: TripContext,
   intent: Intent,
-  groundingNote: string | null
+  groundingNote: string | null,
+  travelStyle: string | null
 ): string {
   const missing = missingFields(context);
   return [
@@ -44,6 +45,24 @@ function buildSystemPrompt(
     CREATOR_PROFILE_INSTRUCTION,
     `Detected intent: ${intent}.`,
     `Known trip context so far: ${JSON.stringify(context)}.`,
+    // context.foodPreference and context.interests are already seeded from
+    // the user's saved profile (see /api/chat/route.ts) whenever this is a
+    // new conversation, so they're covered by "Known trip context" above.
+    // travelStyle isn't part of TripContext (it's a standing user trait,
+    // not something extracted from this conversation), so it needs its own
+    // line to actually reach the model.
+    travelStyle
+      ? `The user's saved travel style preference is "${travelStyle}". When you suggest ` +
+        "accommodation, food, or activities (e.g. room stays, restaurants), lean toward this " +
+        "style unless they say otherwise in this conversation — e.g. a \"budget\" traveler " +
+        "should get hostels/homestays and street food/thalis, not five-star resorts and fine " +
+        "dining, and vice-versa for \"luxury\"."
+      : "",
+    context.foodPreference
+      ? `The user's food preference is "${context.foodPreference}" — every food/restaurant ` +
+        "suggestion you make must respect this (e.g. never suggest a non-vegetarian dish to a " +
+        "vegetarian)."
+      : "",
     missing.length > 0
       ? `Missing essential info: ${missing.join(", ")}. Ask for it only if needed for this reply — don't repeat questions already answered.`
       : "All essential trip fields are known — focus on being helpful rather than asking more questions.",
@@ -91,14 +110,15 @@ async function* streamFromGroq(
   message: string,
   context: TripContext,
   intent: Intent,
-  groundingNote: string | null
+  groundingNote: string | null,
+  travelStyle: string | null
 ): AsyncGenerator<string> {
   const groq = getGroqClient();
   const stream = await groq.chat.completions.create({
     model: GROQ_MODEL,
     stream: true,
     messages: [
-      { role: "system", content: buildSystemPrompt(context, intent, groundingNote) },
+      { role: "system", content: buildSystemPrompt(context, intent, groundingNote, travelStyle) },
       ...history.map((turn) => ({ role: turn.role, content: turn.content })),
       { role: "user", content: message },
     ],
@@ -130,12 +150,20 @@ export async function* streamAssistantReply(
   message: string,
   context: TripContext,
   intent: Intent,
-  groundingNote: string | null = null
+  groundingNote: string | null = null,
+  travelStyle: string | null = null
 ): AsyncGenerator<string> {
   if (!isGroqStubbed()) {
     let yieldedAny = false;
     try {
-      for await (const chunk of streamFromGroq(history, message, context, intent, groundingNote)) {
+      for await (const chunk of streamFromGroq(
+        history,
+        message,
+        context,
+        intent,
+        groundingNote,
+        travelStyle
+      )) {
         yieldedAny = true;
         yield chunk;
       }
@@ -148,7 +176,7 @@ export async function* streamAssistantReply(
 
   if (!isGeminiStubbed()) {
     yield* geminiStream(
-      buildSystemPrompt(context, intent, groundingNote),
+      buildSystemPrompt(context, intent, groundingNote, travelStyle),
       history,
       message
     );
