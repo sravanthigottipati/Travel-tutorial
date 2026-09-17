@@ -1,4 +1,5 @@
 import { getGroqClient, isGroqStubbed, GROQ_MODEL } from "@/lib/ai/groq-client";
+import { geminiJson, isGeminiStubbed } from "@/lib/ai/gemini-client";
 import { safeParseTripContextFields, type TripContext } from "@/lib/ai/trip-context";
 import { INTENTS, type Intent } from "@/lib/ai/intent";
 import { KNOWN_DESTINATIONS } from "@/lib/planner/destinations";
@@ -118,7 +119,19 @@ function heuristicExtract(message: string, current: TripContext): ExtractionResu
   return { intent, update };
 }
 
-// ---- Real extraction (Groq JSON mode) -------------------------------------
+// ---- Real extraction (Groq JSON mode, Gemini fallback) --------------------
+
+function parseExtractionJson(raw: string): ExtractionResult {
+  try {
+    const parsed = JSON.parse(raw);
+    const intent = INTENTS.includes(parsed.intent) ? (parsed.intent as Intent) : "chitchat";
+    const update = safeParseTripContextFields(parsed.update ?? {});
+    return { intent, update };
+  } catch {
+    // Malformed AI output — never trust it; treat as no-op extraction.
+    return { intent: "chitchat", update: {} };
+  }
+}
 
 async function groqExtract(message: string, current: TripContext): Promise<ExtractionResult> {
   const groq = getGroqClient();
@@ -134,25 +147,39 @@ async function groqExtract(message: string, current: TripContext): Promise<Extra
     ],
   });
 
-  const raw = completion.choices[0]?.message?.content ?? "{}";
-
-  try {
-    const parsed = JSON.parse(raw);
-    const intent = INTENTS.includes(parsed.intent) ? (parsed.intent as Intent) : "chitchat";
-    const update = safeParseTripContextFields(parsed.update ?? {});
-    return { intent, update };
-  } catch {
-    // Malformed AI output — never trust it; treat as no-op extraction.
-    return { intent: "chitchat", update: {} };
-  }
+  return parseExtractionJson(completion.choices[0]?.message?.content ?? "{}");
 }
 
+async function geminiExtract(message: string, current: TripContext): Promise<ExtractionResult> {
+  const raw = await geminiJson(
+    EXTRACTION_SYSTEM_PROMPT,
+    `Current trip context: ${JSON.stringify(current)}\nLatest message: ${message}`
+  );
+  return parseExtractionJson(raw);
+}
+
+// Groq is the primary provider; Gemini is tried only when Groq is
+// configured but fails at request time (rate limit, outage, etc.). Never
+// throws — falls all the way back to the heuristic stub if both real
+// providers are unconfigured or failing, so a caller never has to handle
+// this failing on top of whatever made the primary provider fail.
 export async function extractTripUpdate(
   message: string,
   current: TripContext
 ): Promise<ExtractionResult> {
-  if (isGroqStubbed()) {
-    return heuristicExtract(message, current);
+  if (!isGroqStubbed()) {
+    try {
+      return await groqExtract(message, current);
+    } catch {
+      // fall through to Gemini
+    }
   }
-  return groqExtract(message, current);
+  if (!isGeminiStubbed()) {
+    try {
+      return await geminiExtract(message, current);
+    } catch {
+      // fall through to the heuristic stub
+    }
+  }
+  return heuristicExtract(message, current);
 }

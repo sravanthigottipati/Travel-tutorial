@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getGroqClient, isGroqStubbed, GROQ_MODEL } from "@/lib/ai/groq-client";
+import { geminiDecideTool, isGeminiStubbed } from "@/lib/ai/gemini-client";
 import { tools, type ToolContext, type ToolName } from "@/lib/ai/tools";
 import type { ChatTurn } from "@/lib/ai/chat-service";
 import type { TripContext } from "@/lib/ai/trip-context";
@@ -30,7 +31,7 @@ async function runTool(name: ToolName, rawArgs: unknown, ctx: ToolContext) {
   return tool.run(ctx, args as any);
 }
 
-// ---- Real path: Groq function-calling ------------------------------------
+// ---- Real path: Groq function-calling (Gemini fallback) -------------------
 
 function buildToolDefinitions() {
   return (Object.keys(tools) as ToolName[]).map((name) => ({
@@ -43,38 +44,26 @@ function buildToolDefinitions() {
   }));
 }
 
-async function groqDecideAndRunTool(input: DecideInput): Promise<AgentResult> {
-  const groq = getGroqClient();
-  const completion = await groq.chat.completions.create({
-    model: GROQ_MODEL,
-    tools: buildToolDefinitions(),
-    tool_choice: "auto",
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are the AI Travel Planner's orchestrator. Call at most one tool if the " +
-          `user's message clearly requires one. Known trip context: ${JSON.stringify(input.context)}. ` +
-          `Active trip id: ${input.tripId ?? "none"}. Detected intent: ${input.intent}. ` +
-          "If no tool is needed, respond with no tool call.",
-      },
-      ...input.history.map((turn) => ({ role: turn.role, content: turn.content })),
-      { role: "user", content: input.message },
-    ],
-  });
+function orchestratorSystemPrompt(input: DecideInput): string {
+  return (
+    "You are the AI Travel Planner's orchestrator. Call at most one tool if the " +
+    `user's message clearly requires one. Known trip context: ${JSON.stringify(input.context)}. ` +
+    `Active trip id: ${input.tripId ?? "none"}. Detected intent: ${input.intent}. ` +
+    "If no tool is needed, respond with no tool call."
+  );
+}
 
-  const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
-  if (!toolCall || toolCall.type !== "function") return null;
-
-  const name = toolCall.function.name as ToolName;
+// Shared by both providers once each has independently decided a tool name
+// + raw args — the single place createTrip's field override and the
+// runTool try/catch live, so neither provider path can diverge on either.
+async function executeDecidedTool(
+  name: string,
+  rawArgs: unknown,
+  input: DecideInput
+): Promise<AgentResult> {
   if (!(name in tools)) return null;
-
-  let args: unknown;
-  try {
-    args = JSON.parse(toolCall.function.arguments);
-  } catch {
-    return null;
-  }
+  const toolName = name as ToolName;
+  let args = rawArgs;
 
   // createTrip is special-cased: its fields must come from the already
   // Zod-validated TripContext (the documented system-of-record, Section
@@ -86,7 +75,7 @@ async function groqDecideAndRunTool(input: DecideInput): Promise<AgentResult> {
   // ("The Western Ghats, particularly Kerala, is a haven...") as the
   // destination. Overriding with context sidesteps that class of bug
   // entirely rather than trying to validate/sanitize free-form model output.
-  if (name === "createTrip") {
+  if (toolName === "createTrip") {
     const { destination, durationDays, travelers, budget } = input.context;
     if (!destination || !durationDays || !travelers || !budget) {
       return null; // not enough confirmed context yet — don't let the model invent trip fields
@@ -95,15 +84,64 @@ async function groqDecideAndRunTool(input: DecideInput): Promise<AgentResult> {
   }
 
   try {
-    const result = await runTool(name, args, { userId: input.userId });
+    const result = await runTool(toolName, args, { userId: input.userId });
     return {
-      toolName: name,
+      toolName,
       summary: result.summary,
       createdTripId: "tripId" in result ? (result.tripId as string) : undefined,
     };
   } catch (err) {
-    return { toolName: name, summary: `Tool call failed: ${err instanceof Error ? err.message : "unknown error"}` };
+    return {
+      toolName,
+      summary: `Tool call failed: ${err instanceof Error ? err.message : "unknown error"}`,
+    };
   }
+}
+
+async function groqDecideAndRunTool(input: DecideInput): Promise<AgentResult> {
+  const groq = getGroqClient();
+  const completion = await groq.chat.completions.create({
+    model: GROQ_MODEL,
+    tools: buildToolDefinitions(),
+    tool_choice: "auto",
+    messages: [
+      { role: "system", content: orchestratorSystemPrompt(input) },
+      ...input.history.map((turn) => ({ role: turn.role, content: turn.content })),
+      { role: "user", content: input.message },
+    ],
+  });
+
+  const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
+  if (!toolCall || toolCall.type !== "function") return null;
+
+  let args: unknown;
+  try {
+    args = JSON.parse(toolCall.function.arguments);
+  } catch {
+    return null;
+  }
+
+  return executeDecidedTool(toolCall.function.name, args, input);
+}
+
+// ---- Fallback path: Gemini function-calling --------------------------------
+
+async function geminiDecideAndRunTool(input: DecideInput): Promise<AgentResult> {
+  const toolDefs = (Object.keys(tools) as ToolName[]).map((name) => ({
+    name,
+    description: tools[name].description,
+    parameters: z.toJSONSchema(tools[name].args),
+  }));
+
+  const call = await geminiDecideTool(
+    orchestratorSystemPrompt(input),
+    input.history.map((turn) => ({ role: turn.role, content: turn.content })),
+    input.message,
+    toolDefs
+  );
+  if (!call) return null;
+
+  return executeDecidedTool(call.name, call.args, input);
 }
 
 // ---- Stub path: heuristic dispatch ----------------------------------------
@@ -196,9 +234,26 @@ async function stubDecideAndRunTool(input: DecideInput): Promise<AgentResult> {
   return null;
 }
 
+// Groq is the primary provider; Gemini is tried only when Groq is
+// configured but fails at request time (rate limit, outage, etc.). Falls
+// back further to the heuristic stub if neither real provider is
+// configured/working — the route handler also wraps this call in its own
+// try/catch as defense-in-depth, but this function itself is designed not
+// to need it.
 export async function decideAndRunTool(input: DecideInput): Promise<AgentResult> {
-  if (isGroqStubbed()) {
-    return stubDecideAndRunTool(input);
+  if (!isGroqStubbed()) {
+    try {
+      return await groqDecideAndRunTool(input);
+    } catch {
+      // fall through to Gemini
+    }
   }
-  return groqDecideAndRunTool(input);
+  if (!isGeminiStubbed()) {
+    try {
+      return await geminiDecideAndRunTool(input);
+    } catch {
+      // fall through to the heuristic stub
+    }
+  }
+  return stubDecideAndRunTool(input);
 }

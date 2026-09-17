@@ -1,4 +1,5 @@
 import { getGroqClient, isGroqStubbed, GROQ_MODEL } from "@/lib/ai/groq-client";
+import { geminiStream, isGeminiStubbed } from "@/lib/ai/gemini-client";
 import type { TripContext } from "@/lib/ai/trip-context";
 import type { Intent } from "@/lib/ai/intent";
 
@@ -72,22 +73,13 @@ function stubReply(
   );
 }
 
-// Streams the assistant's reply as text chunks. Falls back to a canned,
-// clearly-labeled stub when GROQ_API_KEY isn't configured, so the rest of
-// the chat pipeline (persistence, UI, session handling) can be built and
-// tested before a real key is available.
-export async function* streamAssistantReply(
+async function* streamFromGroq(
   history: ChatTurn[],
   message: string,
   context: TripContext,
   intent: Intent,
-  groundingNote: string | null = null
+  groundingNote: string | null
 ): AsyncGenerator<string> {
-  if (isGroqStubbed()) {
-    yield* chunkStubText(stubReply(message, context, intent, groundingNote));
-    return;
-  }
-
   const groq = getGroqClient();
   const stream = await groq.chat.completions.create({
     model: GROQ_MODEL,
@@ -103,4 +95,52 @@ export async function* streamAssistantReply(
     const delta = chunk.choices[0]?.delta?.content;
     if (delta) yield delta;
   }
+}
+
+// Streams the assistant's reply as text chunks. Groq is the primary
+// provider; Gemini (see gemini-client.ts) is tried as a fallback when Groq
+// is configured but fails — a rate limit or outage on one provider
+// shouldn't mean the user gets no response at all. Falls back further to a
+// canned, clearly-labeled stub when neither is configured, so the rest of
+// the chat pipeline (persistence, UI, session handling) can be built and
+// tested without any real key.
+//
+// The Groq->Gemini fallback only fires when the failure happens before any
+// chunk has been yielded (the common case — the request is rejected
+// outright, e.g. a 429): `yieldedAny` guards against switching providers
+// mid-stream, which would otherwise prepend a second, unrelated attempt
+// from Gemini after whatever partial response Groq already sent. If Groq's
+// stream fails after sending the user some tokens, that partial response is
+// left as-is and the failure propagates to the caller's own fallback text.
+export async function* streamAssistantReply(
+  history: ChatTurn[],
+  message: string,
+  context: TripContext,
+  intent: Intent,
+  groundingNote: string | null = null
+): AsyncGenerator<string> {
+  if (!isGroqStubbed()) {
+    let yieldedAny = false;
+    try {
+      for await (const chunk of streamFromGroq(history, message, context, intent, groundingNote)) {
+        yieldedAny = true;
+        yield chunk;
+      }
+      return;
+    } catch (err) {
+      if (yieldedAny || isGeminiStubbed()) throw err;
+      // fall through to Gemini — nothing was sent to the caller yet
+    }
+  }
+
+  if (!isGeminiStubbed()) {
+    yield* geminiStream(
+      buildSystemPrompt(context, intent, groundingNote),
+      history,
+      message
+    );
+    return;
+  }
+
+  yield* chunkStubText(stubReply(message, context, intent, groundingNote));
 }

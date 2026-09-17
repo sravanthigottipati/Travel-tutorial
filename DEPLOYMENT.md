@@ -50,6 +50,7 @@ list; at minimum:
 | `DATABASE_URL` | Supabase pooled connection string |
 | `AUTH_SECRET` | Generate with `openssl rand -base64 32` — a fresh one, not the local dev value |
 | `GROQ_API_KEY` | Leave as the placeholder to keep the app in stub mode, or set a real key to enable actual AI responses (see Section 9) |
+| `GEMINI_API_KEY` | Optional. Automatic fallback provider — used only when Groq is configured but fails at request time (rate limit, outage). Leave as the placeholder to run with Groq only. |
 
 `AUTH_URL` / `NEXTAUTH_URL` are **not** needed — `trustHost: true`
 (`src/lib/auth/auth.config.ts`) makes Auth.js trust the `X-Forwarded-Host`
