@@ -28,15 +28,21 @@ export default async function ChatPage() {
     })) ?? [];
 
   // Mirrors /api/chat's own seeding for a brand-new session (no
-  // ChatSession row exists at all yet) — purely for the "Trip so far"
-  // panel to already show what's known about the user before they've
-  // typed anything, on their very first visit.
+  // ChatSession row exists at all yet): what a fresh conversation's
+  // context starts from before the user's typed anything. Used both as
+  // this page's initialContext when there's no latestSession, and passed
+  // down separately so ChatWindow's "New chat" can reset to this same
+  // seed client-side — otherwise clicking New Chat reset straight to a
+  // blank context and only got the profile-seeded one back after the
+  // first message's round trip to the server.
+  const personalizedContext = mergeTripContext(emptyTripContext, {
+    interests: personalization.interests,
+    foodPreference: personalization.foodPreference ?? undefined,
+  });
+
   const initialContext = latestSession
     ? parseStoredTripContext(latestSession.context)
-    : mergeTripContext(emptyTripContext, {
-        interests: personalization.interests,
-        foodPreference: personalization.foodPreference ?? undefined,
-      });
+    : personalizedContext;
 
   return (
     <ChatWindow
@@ -44,6 +50,7 @@ export default async function ChatPage() {
       initialMessages={initialMessages}
       initialContext={initialContext}
       initialTripId={latestSession?.tripId ?? null}
+      personalizedContext={personalizedContext}
     />
   );
 }

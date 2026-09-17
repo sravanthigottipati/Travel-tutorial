@@ -62,9 +62,22 @@ type Props = {
   initialMessages: Message[];
   initialContext: TripContext;
   initialTripId: string | null;
+  // What a fresh conversation's context should start from — the user's
+  // saved profile interests/food preference, precomputed server-side
+  // (chat/page.tsx) since this component has no server access of its own.
+  // "New chat" resets to this instead of emptyTripContext so the side
+  // panel doesn't blank out something the app already knows about the
+  // user, only to have it reappear once the first message round-trips.
+  personalizedContext: TripContext;
 };
 
-export function ChatWindow({ initialSessionId, initialMessages, initialContext, initialTripId }: Props) {
+export function ChatWindow({
+  initialSessionId,
+  initialMessages,
+  initialContext,
+  initialTripId,
+  personalizedContext,
+}: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState(initialSessionId);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -158,7 +171,7 @@ export function ChatWindow({ initialSessionId, initialMessages, initialContext, 
   function startNewChat() {
     setSessionId(null);
     setMessages([]);
-    setContext(emptyTripContext);
+    setContext(personalizedContext);
     setToolTripId(null);
     setInput("");
     setNewChatSaveError(null);
