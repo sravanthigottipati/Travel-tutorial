@@ -42,9 +42,9 @@ export default async function TripMapPage({
 
       {!center ? (
         <p className="text-sm text-muted-foreground">
-          Map and weather are only available for destinations with curated location data
-          (currently: Goa, Kerala, Manali, Paris) — see Section 18 for why this
-          isn&apos;t general-purpose yet.
+          Map and weather aren&apos;t available for {trip.destination} — only destinations with
+          curated location data support this yet (see Section 18 for why this isn&apos;t
+          general-purpose).
         </p>
       ) : (
         <>

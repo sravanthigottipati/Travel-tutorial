@@ -55,11 +55,26 @@ export const KNOWN_DESTINATIONS = [
 // small Filipino municipality, ahead of the actual Indian state, by its
 // ranking), so these are well-established reference points instead, kept
 // alongside the place data they already stand in for a real Places API.
+// Covers every destination with curated place data (PLACES below) — found
+// live that map/weather only covered 4 of the 15 while itinerary/budget/
+// recommendations already worked for all of them, a needless inconsistency
+// once every destination has real place data to justify the same treatment.
 export const DESTINATION_CENTERS: Partial<Record<(typeof KNOWN_DESTINATIONS)[number], { lat: number; lon: number; label: string }>> = {
   goa: { lat: 15.4909, lon: 73.8278, label: "Panaji, Goa" },
   kerala: { lat: 9.9312, lon: 76.2673, label: "Kochi, Kerala" },
   manali: { lat: 32.2432, lon: 77.1892, label: "Manali, Himachal Pradesh" },
+  shimla: { lat: 31.1048, lon: 77.1734, label: "Shimla, Himachal Pradesh" },
+  jaipur: { lat: 26.9124, lon: 75.7873, label: "Jaipur, Rajasthan" },
+  udaipur: { lat: 24.5854, lon: 73.7125, label: "Udaipur, Rajasthan" },
+  delhi: { lat: 28.6139, lon: 77.209, label: "Delhi" },
+  mumbai: { lat: 19.076, lon: 72.8777, label: "Mumbai, Maharashtra" },
+  bali: { lat: -8.5069, lon: 115.2625, label: "Ubud, Bali" },
   paris: { lat: 48.8566, lon: 2.3522, label: "Paris" },
+  london: { lat: 51.5074, lon: -0.1278, label: "London" },
+  tokyo: { lat: 35.6762, lon: 139.6503, label: "Tokyo" },
+  dubai: { lat: 25.2048, lon: 55.2708, label: "Dubai" },
+  singapore: { lat: 1.3521, lon: 103.8198, label: "Singapore" },
+  bangkok: { lat: 13.7563, lon: 100.5018, label: "Bangkok" },
 };
 
 export function getDestinationCenter(destination: string) {
