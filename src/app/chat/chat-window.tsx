@@ -2,11 +2,47 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "cn";
 import { emptyTripContext, type TripContext } from "@/lib/ai/trip-context";
 import { TripContextPanel } from "./trip-context-panel";
+
+// react-markdown never renders raw HTML from its input (no rehype-raw
+// plugin here) — it parses markdown into React elements directly, so
+// assistant text stays exactly as XSS-safe as the plain-text rendering it
+// replaces, while no longer showing literal "**bold**" / "* bullet"
+// syntax to the user.
+const markdownComponents = {
+  p: (props: React.ComponentPropsWithoutRef<"p">) => <p className="mb-2 last:mb-0" {...props} />,
+  ul: (props: React.ComponentPropsWithoutRef<"ul">) => (
+    <ul className="mb-2 list-disc pl-5 last:mb-0" {...props} />
+  ),
+  ol: (props: React.ComponentPropsWithoutRef<"ol">) => (
+    <ol className="mb-2 list-decimal pl-5 last:mb-0" {...props} />
+  ),
+  li: (props: React.ComponentPropsWithoutRef<"li">) => <li className="mb-0.5" {...props} />,
+  strong: (props: React.ComponentPropsWithoutRef<"strong">) => (
+    <strong className="font-semibold" {...props} />
+  ),
+  h1: (props: React.ComponentPropsWithoutRef<"h1">) => (
+    <h3 className="mb-1 mt-2 text-base font-semibold first:mt-0" {...props} />
+  ),
+  h2: (props: React.ComponentPropsWithoutRef<"h2">) => (
+    <h3 className="mb-1 mt-2 text-base font-semibold first:mt-0" {...props} />
+  ),
+  h3: (props: React.ComponentPropsWithoutRef<"h3">) => (
+    <h3 className="mb-1 mt-2 text-sm font-semibold first:mt-0" {...props} />
+  ),
+  a: (props: React.ComponentPropsWithoutRef<"a">) => (
+    <a className="text-primary underline-offset-4 hover:underline" target="_blank" rel="noreferrer" {...props} />
+  ),
+  code: (props: React.ComponentPropsWithoutRef<"code">) => (
+    <code className="rounded bg-black/10 px-1 py-0.5 text-xs" {...props} />
+  ),
+  hr: () => <hr className="my-2 border-border" />,
+} as const;
 
 type Message = {
   role: "user" | "assistant";
@@ -115,13 +151,23 @@ export function ChatWindow({ initialSessionId, initialMessages, initialContext }
             <div
               key={i}
               className={cn(
-                "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
+                "max-w-[85%] rounded-lg px-3 py-2 text-sm",
                 m.role === "user"
-                  ? "self-end bg-primary text-primary-foreground"
+                  ? "self-end whitespace-pre-wrap bg-primary text-primary-foreground"
                   : "self-start bg-muted text-foreground"
               )}
             >
-              {m.content || (m.role === "assistant" && isSending ? "…" : "")}
+              {m.role === "assistant" ? (
+                m.content ? (
+                  <ReactMarkdown components={markdownComponents}>{m.content}</ReactMarkdown>
+                ) : isSending ? (
+                  "…"
+                ) : (
+                  ""
+                )
+              ) : (
+                m.content
+              )}
             </div>
           ))}
         </div>
