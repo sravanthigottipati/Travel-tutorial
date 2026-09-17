@@ -3,11 +3,17 @@ import { z } from "zod";
 // Structured trip context the AI orchestrator extracts from conversation
 // and the backend uses as the deterministic system-of-record for planning.
 // See project documentary, Section 14 (Conversation and Memory Design).
+//
+// Bounds mirror trip-schema.ts/tools.ts's createTrip validation — this is
+// the actual value source createTrip's tool-call args get overridden with
+// (see agent.ts), so an unbounded durationDays extracted here (e.g. a user
+// typing "plan a 10 million day trip") would otherwise reach the same
+// itinerary-generation resource-exhaustion path those bounds exist to close.
 export const tripContextSchema = z.object({
-  destination: z.string().min(1).optional(),
-  durationDays: z.number().int().positive().optional(),
-  travelers: z.number().int().positive().optional(),
-  budget: z.number().positive().optional(),
+  destination: z.string().min(1).max(100).optional(),
+  durationDays: z.number().int().positive().max(60).optional(),
+  travelers: z.number().int().positive().max(20).optional(),
+  budget: z.number().positive().max(100_000_000).optional(),
   interests: z.array(z.string()).default([]),
   foodPreference: z.string().optional(),
 });

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 import { registerSchema } from "@/lib/auth/credentials";
 import { checkRateLimit, getClientIp, rateLimitResponseHeaders } from "@/lib/security/rate-limit";
+import { Prisma } from "@/generated/prisma/client";
 
 // Public, unauthenticated endpoint — rate limit by IP to slow down
 // automated account-creation spam (Section 22).
@@ -44,15 +45,30 @@ export async function POST(request: Request) {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      passwordHash,
-      preferences: { create: {} },
-    },
-    select: { id: true, name: true, email: true, createdAt: true },
-  });
+  try {
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+        preferences: { create: {} },
+      },
+      select: { id: true, name: true, email: true, createdAt: true },
+    });
 
-  return NextResponse.json({ user }, { status: 201 });
+    return NextResponse.json({ user }, { status: 201 });
+  } catch (err) {
+    // Two concurrent registrations for the same email both pass the
+    // findUnique check above (TOCTOU gap), then race on this create() —
+    // the DB's own unique constraint on User.email correctly rejects the
+    // second one, but left uncaught that surfaced as an unhandled 500
+    // instead of the same 409 a sequential duplicate gets above.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "An account with this email already exists" },
+        { status: 409 }
+      );
+    }
+    throw err;
+  }
 }

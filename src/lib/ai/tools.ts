@@ -20,11 +20,17 @@ import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
 
 export type ToolContext = { userId: string };
 
+// Bounds match trip-schema.ts's (the manual-form/API path) — see that
+// file's comment: an unbounded durationDays here is a real
+// resource-exhaustion DoS, since the itinerary engine loops that many
+// times building a single Prisma $transaction. This is the AI path to the
+// same createTrip call, so it needs the identical ceiling, not just the
+// manual one.
 const createTripArgs = z.object({
   destination: z.string().min(1).max(60),
-  durationDays: z.number().int().positive(),
-  travelers: z.number().int().positive(),
-  budget: z.number().positive(),
+  durationDays: z.number().int().positive().max(60),
+  travelers: z.number().int().positive().max(20),
+  budget: z.number().positive().max(100_000_000),
 });
 
 const searchDestinationArgs = z.object({
