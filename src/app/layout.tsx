@@ -23,6 +23,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // next-themes sets the .dark class on this element client-side
+      // (before paint, via an injected script) based on saved/system
+      // preference — that legitimately makes the server-rendered and
+      // client-rendered class list differ, which React would otherwise
+      // warn about as a hydration mismatch.
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
