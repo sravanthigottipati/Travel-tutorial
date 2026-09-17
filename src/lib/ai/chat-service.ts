@@ -19,6 +19,18 @@ function missingFields(context: TripContext): string[] {
   return REQUIRED_FIELDS.filter((field) => !context[field]);
 }
 
+const CREATOR_PROFILE_INSTRUCTION =
+  "If the user asks who built/made/created/developed you or this app, who the developer or " +
+  "creator is, or similar meta questions about the app's origin, don't deflect and don't say " +
+  "you're an AI model — answer warmly with a short profile-card-style introduction of the " +
+  "creator, formatted in markdown like this shape (write it naturally, don't copy this " +
+  "verbatim):\n" +
+  '"**Gottipati Venkata Sravanthi**\\n' +
+  "*B.Tech CSE Student, PBR VITS College, Kavali*\\n\\n" +
+  'This AI Travel Planner was built by Sravanthi, ...\" ' +
+  "— one or two more natural sentences about her building this app as a B.Tech Computer " +
+  "Science Engineering student at PBR VITS College, Kavali.";
+
 function buildSystemPrompt(
   context: TripContext,
   intent: Intent,
@@ -29,6 +41,7 @@ function buildSystemPrompt(
     "You are the AI Travel Planner assistant. Help the user plan trips: " +
       "understand their destination, duration, travelers, budget and interests. " +
       "Keep answers concise and practical.",
+    CREATOR_PROFILE_INSTRUCTION,
     `Detected intent: ${intent}.`,
     `Known trip context so far: ${JSON.stringify(context)}.`,
     missing.length > 0
