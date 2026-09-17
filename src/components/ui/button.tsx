@@ -7,7 +7,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // /80 read as the button having "lost" its solid black look right
+        // after a click — the cursor naturally stays put after clicking,
+        // so :hover keeps applying until the pointer moves elsewhere (e.g.
+        // into a form field to edit), which briefly looked like a bug on
+        // primary CTA buttons (e.g. "Save preferences") rather than normal
+        // hover feedback. /90 keeps a visible hover affordance without it
+        // reading as faded/disabled.
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
