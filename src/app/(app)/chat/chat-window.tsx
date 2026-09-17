@@ -15,8 +15,17 @@ import {
   AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import { cn } from "cn";
-import { emptyTripContext, type TripContext } from "@/lib/ai/trip-context";
+import { emptyTripContext, parseStoredTripContext, type TripContext } from "@/lib/ai/trip-context";
 import { TripContextPanel } from "./trip-context-panel";
+
+function formatRelativeDate(iso: string): string {
+  const date = new Date(iso);
+  const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 // react-markdown never renders raw HTML from its input (no rehype-raw
 // plugin here) — it parses markdown into React elements directly, so
@@ -79,6 +88,19 @@ type Message = {
   content: string;
 };
 
+type RecentSession = {
+  id: string;
+  createdAt: string;
+  tripId: string | null;
+  destination: string | null;
+  preview: string | null;
+};
+
+// What clicking "New chat" or a Recent chats entry needs to do once any
+// "save first?" confirmation is resolved — one dialog serves both, since
+// both equally abandon whatever conversation is currently open.
+type PendingAction = { type: "new" } | { type: "switch"; session: RecentSession };
+
 type Props = {
   initialSessionId: string | null;
   initialMessages: Message[];
@@ -112,9 +134,12 @@ export function ChatWindow({
   const [toolTripId, setToolTripId] = useState<string | null>(initialTripId);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [showNewChatConfirm, setShowNewChatConfirm] = useState(false);
-  const [isSavingBeforeNewChat, setIsSavingBeforeNewChat] = useState(false);
-  const [newChatSaveError, setNewChatSaveError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [isSavingBeforeAction, setIsSavingBeforeAction] = useState(false);
+  const [pendingActionError, setPendingActionError] = useState<string | null>(null);
+  const [recentOpen, setRecentOpen] = useState(false);
+  const [recentSessions, setRecentSessions] = useState<RecentSession[] | null>(null);
+  const [recentError, setRecentError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   function scrollToBottom() {
@@ -190,36 +215,75 @@ export function ChatWindow({
     }
   }
 
-  function startNewChat() {
+  function resetToNewChat() {
     setSessionId(null);
     setMessages([]);
     setContext(personalizedContext);
     setToolTripId(null);
     setInput("");
-    setNewChatSaveError(null);
-    setShowNewChatConfirm(false);
   }
 
-  function handleNewChatClick() {
-    // Nothing worth asking about: no conversation yet, or this session's
-    // context already became a trip (via the agent or a manual "Save as
-    // trip") — either way there's nothing unsaved to lose.
+  async function loadSession(session: RecentSession) {
+    const res = await fetch(`/api/chat/${session.id}`);
+    if (!res.ok) {
+      setRecentError("Couldn't load that conversation.");
+      return false;
+    }
+    const data = await res.json();
+    const loaded = data.session as {
+      id: string;
+      context: unknown;
+      tripId: string | null;
+      messages: { role: "USER" | "ASSISTANT" | "SYSTEM"; message: string }[];
+    };
+    setSessionId(loaded.id);
+    setMessages(
+      loaded.messages
+        .filter((m) => m.role !== "SYSTEM")
+        .map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.message }))
+    );
+    setContext(parseStoredTripContext(loaded.context));
+    setToolTripId(loaded.tripId);
+    setInput("");
+    return true;
+  }
+
+  // Runs a pending action (start a new chat, or switch to a past one)
+  // immediately, discarding whatever's currently open without saving it.
+  async function proceedWithAction(action: PendingAction) {
+    if (action.type === "new") {
+      resetToNewChat();
+    } else {
+      await loadSession(action.session);
+    }
+    setPendingAction(null);
+    setPendingActionError(null);
+    setRecentOpen(false);
+  }
+
+  // "New chat" and picking a Recent chats entry both abandon whatever
+  // conversation is currently open, so they share one gate: if there's
+  // nothing worth saving (no messages yet, or this session already became
+  // a trip via the agent or a manual "Save as trip"), just proceed —
+  // otherwise ask first, via the same confirmation dialog either way.
+  function requestAction(action: PendingAction) {
     const hasUnsavedConversation = messages.length > 0 && !toolTripId;
     if (!hasUnsavedConversation) {
-      startNewChat();
+      proceedWithAction(action);
       return;
     }
-    setNewChatSaveError(null);
-    setShowNewChatConfirm(true);
+    setPendingActionError(null);
+    setPendingAction(action);
   }
 
-  async function handleSaveAndStartNewChat() {
+  async function handleSaveThenProceed() {
+    if (!pendingAction) return;
     if (!sessionId) {
-      startNewChat();
+      await proceedWithAction(pendingAction);
       return;
     }
-    setIsSavingBeforeNewChat(true);
-    setNewChatSaveError(null);
+    setIsSavingBeforeAction(true);
+    setPendingActionError(null);
     try {
       const res = await fetch("/api/trips", {
         method: "POST",
@@ -228,15 +292,31 @@ export function ChatWindow({
       });
       const data = await res.json();
       if (!res.ok) {
-        setNewChatSaveError(data.error ?? "Couldn't save this conversation as a trip.");
+        setPendingActionError(data.error ?? "Couldn't save this conversation as a trip.");
         return;
       }
       router.refresh();
-      startNewChat();
+      await proceedWithAction(pendingAction);
     } catch {
-      setNewChatSaveError("Couldn't save this conversation as a trip.");
+      setPendingActionError("Couldn't save this conversation as a trip.");
     } finally {
-      setIsSavingBeforeNewChat(false);
+      setIsSavingBeforeAction(false);
+    }
+  }
+
+  async function handleOpenRecent() {
+    const next = !recentOpen;
+    setRecentOpen(next);
+    if (next && recentSessions === null) {
+      setRecentError(null);
+      try {
+        const res = await fetch("/api/chat/sessions");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to load");
+        setRecentSessions(data.sessions);
+      } catch {
+        setRecentError("Couldn't load recent chats.");
+      }
     }
   }
 
@@ -245,7 +325,12 @@ export function ChatWindow({
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-sm font-medium text-muted-foreground">Chat</h1>
-          <Button variant="outline" size="sm" onClick={handleNewChatClick} disabled={isSending}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => requestAction({ type: "new" })}
+            disabled={isSending}
+          >
             New chat
           </Button>
         </div>
@@ -294,6 +379,58 @@ export function ChatWindow({
         )}
 
         <form onSubmit={handleSubmit} className="flex gap-2">
+          <div className="relative">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleOpenRecent}
+              disabled={isSending}
+              aria-expanded={recentOpen}
+              aria-label="Recent chats"
+            >
+              Recent
+            </Button>
+            {recentOpen && (
+              <div className="absolute bottom-full left-0 mb-2 w-72 rounded-xl border border-border bg-card p-2 text-card-foreground shadow-lg">
+                <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Recent chats</p>
+                {recentError && <p className="px-2 py-1 text-sm text-destructive">{recentError}</p>}
+                {recentSessions === null && !recentError && (
+                  <p className="px-2 py-1 text-sm text-muted-foreground">Loading…</p>
+                )}
+                {recentSessions?.length === 0 && (
+                  <p className="px-2 py-1 text-sm text-muted-foreground">No past conversations yet.</p>
+                )}
+                {recentSessions && recentSessions.length > 0 && (
+                  <div className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
+                    {recentSessions.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => requestAction({ type: "switch", session: s })}
+                        disabled={s.id === sessionId}
+                        className={cn(
+                          "flex flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left transition-colors",
+                          s.id === sessionId
+                            ? "bg-muted"
+                            : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="flex items-center justify-between text-sm font-medium">
+                          <span className="truncate">{s.destination ?? "Untitled chat"}</span>
+                          <span className="shrink-0 pl-2 text-xs font-normal text-muted-foreground">
+                            {formatRelativeDate(s.createdAt)}
+                          </span>
+                        </span>
+                        {s.preview && (
+                          <span className="truncate text-xs text-muted-foreground">{s.preview}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -307,36 +444,36 @@ export function ChatWindow({
       </div>
       <TripContextPanel context={context} sessionId={sessionId} />
 
-      <AlertDialog open={showNewChatConfirm} onOpenChange={setShowNewChatConfirm}>
+      <AlertDialog open={pendingAction !== null} onOpenChange={(next) => !next && setPendingAction(null)}>
         <AlertDialogPortal>
           <AlertDialogPopup>
             <AlertDialogTitle>Save this conversation first?</AlertDialogTitle>
             <AlertDialogDescription>
-              This chat hasn&apos;t been saved as a trip yet. If you start a new chat without
-              saving, you won&apos;t be able to come back to this conversation.
+              This chat hasn&apos;t been saved as a trip yet. If you continue without saving,
+              you won&apos;t be able to come back to this conversation.
             </AlertDialogDescription>
-            {newChatSaveError && (
-              <p className="mt-2 text-sm text-destructive">{newChatSaveError}</p>
+            {pendingActionError && (
+              <p className="mt-2 text-sm text-destructive">{pendingActionError}</p>
             )}
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowNewChatConfirm(false)}
-                disabled={isSavingBeforeNewChat}
+                onClick={() => setPendingAction(null)}
+                disabled={isSavingBeforeAction}
               >
                 Cancel
               </Button>
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={startNewChat}
-                disabled={isSavingBeforeNewChat}
+                onClick={() => pendingAction && proceedWithAction(pendingAction)}
+                disabled={isSavingBeforeAction}
               >
-                Discard & start new
+                Discard & continue
               </Button>
-              <Button size="sm" onClick={handleSaveAndStartNewChat} disabled={isSavingBeforeNewChat}>
-                {isSavingBeforeNewChat ? "Saving…" : "Save & start new"}
+              <Button size="sm" onClick={handleSaveThenProceed} disabled={isSavingBeforeAction}>
+                {isSavingBeforeAction ? "Saving…" : "Save & continue"}
               </Button>
             </div>
           </AlertDialogPopup>
