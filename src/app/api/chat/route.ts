@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { streamAssistantReply, type ChatTurn } from "@/lib/ai/chat-service";
 import { extractTripUpdate } from "@/lib/ai/extract-trip-context";
 import { mergeTripContext, parseStoredTripContext } from "@/lib/ai/trip-context";
+import type { Intent } from "@/lib/ai/intent";
 import { tools } from "@/lib/ai/tools";
 import { decideAndRunTool } from "@/lib/ai/agent";
 import { checkRateLimit, rateLimitResponseHeaders } from "@/lib/security/rate-limit";
@@ -125,7 +126,21 @@ export async function POST(request: Request) {
     });
   }
 
-  const groundingNote = [recommendations, toolResult?.summary].filter(Boolean).join(" ") || null;
+  // Explicit negative signal when an action-oriented message produced no
+  // tool result — found live: without this, the conversational reply (a
+  // separate, unsynchronized Groq call) would confidently narrate a made-up
+  // itinerary change ("Removed 'X' from Day 2...") that never touched the
+  // database, because it had no way to know the backend action didn't
+  // actually run. A positive groundingNote from a successful tool call
+  // already prevents this; this covers the case where none ran at all.
+  const ACTION_INTENTS: Intent[] = ["create_trip", "modify_trip", "budget"];
+  const noActionTakenNote =
+    !toolResult && ACTION_INTENTS.includes(intent)
+      ? "No trip/itinerary/budget change was actually made this turn. If the user asked you to create, modify, or recalculate something, tell them it couldn't be completed right now — do not claim you made a change."
+      : null;
+
+  const groundingNote =
+    [recommendations, toolResult?.summary, noActionTakenNote].filter(Boolean).join(" ") || null;
 
   const encoder = new TextEncoder();
   let assistantText = "";

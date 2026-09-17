@@ -47,9 +47,22 @@ const modifyItineraryArgs = z.object({
   activityNameContains: z.string().optional(),
   newActivity: z
     .object({
-      name: z.string().min(1),
-      location: z.string().optional(),
+      // Capped at 60 chars, matching the curated destination data's own
+      // activity names (destinations.ts) — a short label, not a full
+      // description. Found live: with nowhere else to put address/time/
+      // category detail, the model crammed all of it into `name` itself
+      // ("Mewari Cooking Class & Cultural Evening Show in Lakeview Cafe,
+      // Jawahar Circle Road, Udaipur..., 2026-09-18T14:00:00+05:30..."),
+      // since startTime/endTime/notes didn't exist as fields to put it in.
+      name: z.string().min(1).max(60),
+      location: z.string().max(120).optional(),
+      // 24-hour "HH:MM", matching the itinerary engine's own TIME_SLOTS
+      // format (itinerary-engine.ts) so generated and AI-added activities
+      // render the same way.
+      startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+      endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
       estimatedCost: z.number().nonnegative().optional(),
+      notes: z.string().max(300).optional(),
     })
     .optional(),
 });
@@ -148,7 +161,11 @@ export const tools = {
 
   modifyItinerary: {
     description:
-      "Apply a structured change to one day of a trip's itinerary: remove an activity by (partial) name, or add a new one.",
+      "Apply a structured change to one day of a trip's itinerary: remove an activity by (partial) name, or add a new one. " +
+      "When adding, keep newActivity.name SHORT (a label, like the trip's other activities — e.g. \"Mewari Cooking Class\", " +
+      "not a full description). Put address, timing context or other detail in newActivity.notes instead, and set " +
+      "startTime AND endTime as 24-hour \"HH:MM\" (e.g. \"14:00\") in their own fields, not appended to the name. " +
+      "Always set estimatedCost when the user states or implies a price — never leave it to default to 0 for a paid activity.",
     args: modifyItineraryArgs,
     async run(ctx: ToolContext, args: z.infer<typeof modifyItineraryArgs>) {
       await assertOwnedTrip(ctx.userId, args.tripId);

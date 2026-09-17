@@ -59,7 +59,14 @@ export async function removeActivity(
 export async function addActivity(
   tripId: string,
   dayNumber: number,
-  activity: { name: string; location?: string | null; estimatedCost?: number; notes?: string | null }
+  activity: {
+    name: string;
+    location?: string | null;
+    startTime?: string | null;
+    endTime?: string | null;
+    estimatedCost?: number;
+    notes?: string | null;
+  }
 ) {
   const day = await prisma.itinerary.findUnique({
     where: { tripId_dayNumber: { tripId, dayNumber } },
@@ -74,6 +81,8 @@ export async function addActivity(
       itineraryId: day.id,
       name: activity.name,
       location: activity.location ?? null,
+      startTime: activity.startTime ?? null,
+      endTime: activity.endTime ?? null,
       estimatedCost: activity.estimatedCost ?? 0,
       notes: activity.notes ?? null,
       sortOrder: day.activities.length,
