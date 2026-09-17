@@ -1,6 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 
-const protectedPrefixes = ["/chat", "/trips", "/profile"];
+const protectedPrefixes = ["/dashboard", "/chat", "/trips", "/profile"];
 
 // Edge-safe base config: no providers that touch Prisma/bcrypt (Node-only),
 // so this can be imported directly by middleware. The full config with the

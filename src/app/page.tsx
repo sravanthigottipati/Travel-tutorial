@@ -1,7 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth/auth";
 import { Button } from "@/components/ui/button";
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+  if (session?.user?.id) {
+    redirect("/dashboard");
+  }
+
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
       <div className="flex flex-col gap-3">
