@@ -23,7 +23,7 @@ export function AppNav({ user }: Props) {
         <Link href="/dashboard" className="text-sm font-semibold tracking-tight">
           AI Travel Planner
         </Link>
-        <div className="flex flex-1 items-center gap-1">
+        <div className="flex flex-1 items-center justify-center gap-1">
           {LINKS.map((link) => {
             // /trips also covers /trips/[id]/... sub-pages, but /dashboard
             // shouldn't match on the /trips prefix.
