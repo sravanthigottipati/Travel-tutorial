@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "cn";
 import { emptyTripContext, parseStoredTripContext, type TripContext } from "@/lib/ai/trip-context";
-import { TripContextPanel } from "./trip-context-panel";
+import { SaveTripButton } from "./save-trip-button";
 
 function formatRelativeDate(iso: string): string {
   const date = new Date(iso);
@@ -141,6 +141,14 @@ export function ChatWindow({
   const [recentSessions, setRecentSessions] = useState<RecentSession[] | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Was previously shown in a "Trip so far" side panel that also held the
+  // "Save as trip" button — removed per feedback (redundant with the saved
+  // Profile, and the AI now states known preferences in its answer text
+  // instead). This is only used now to gate where "Save as trip" appears.
+  const canSaveTrip = Boolean(
+    context.destination && context.durationDays && context.travelers && context.budget
+  );
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -369,13 +377,20 @@ export function ChatWindow({
           ))}
         </div>
 
-        {toolTripId && (
+        {toolTripId ? (
           <p className="text-sm text-muted-foreground">
             <Link href={`/trips/${toolTripId}`} className="text-primary underline-offset-4 hover:underline">
               View the trip
             </Link>{" "}
             the assistant just created or updated.
           </p>
+        ) : (
+          canSaveTrip &&
+          sessionId && (
+            <div>
+              <SaveTripButton sessionId={sessionId} />
+            </div>
+          )
         )}
 
         <form onSubmit={handleSubmit} className="flex gap-2">
@@ -442,7 +457,6 @@ export function ChatWindow({
           </Button>
         </form>
       </div>
-      <TripContextPanel context={context} sessionId={sessionId} />
 
       <AlertDialog open={pendingAction !== null} onOpenChange={(next) => !next && setPendingAction(null)}>
         <AlertDialogPortal>

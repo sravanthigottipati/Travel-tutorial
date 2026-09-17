@@ -39,6 +39,22 @@ const GENERAL_KNOWLEDGE_INSTRUCTION =
   "answer to. Only add a brief caveat when something is truly time-sensitive (e.g. live prices, " +
   "today's weather, current events) and your knowledge could be outdated.";
 
+// There is no "Trip so far" panel in the UI anymore (removed per feedback —
+// it duplicated what's already saved in Profile). So the model itself must
+// surface what it knows: whenever it gives trip-related suggestions, it
+// should open by naming the preferences it's using, in plain sentence form,
+// rather than silently applying them where the user can't see them.
+const PREFERENCE_DISCLOSURE_INSTRUCTION =
+  "There is no separate UI panel showing the user's trip context or saved preferences — this is " +
+  "the only place that information is visible, so you must surface it yourself. Whenever you give " +
+  "trip-related suggestions (itinerary, food, stays, activities), open your answer with a short, " +
+  "natural line stating the preferences you're using, e.g. \"Based on your saved preferences — " +
+  "vegetarian food, and an interest in beaches and history — here's...\", then give the answer. " +
+  "If nothing relevant is known yet, skip this line. If the user, or a travel companion they " +
+  "mention, states a different or additional preference during the conversation (e.g. \"my friend " +
+  "wants non-veg options\"), treat that as an update for this trip, use it from then on, and " +
+  "briefly acknowledge the change.";
+
 const CREATOR_PROFILE_INSTRUCTION =
   "If the user asks who built/made/created/developed you or this app, who the developer or " +
   "creator is, or similar meta questions about the app's origin, don't deflect and don't say " +
@@ -63,6 +79,7 @@ function buildSystemPrompt(
       "understand their destination, duration, travelers, budget and interests. " +
       "Keep answers concise and practical.",
     GENERAL_KNOWLEDGE_INSTRUCTION,
+    PREFERENCE_DISCLOSURE_INSTRUCTION,
     CREATOR_PROFILE_INSTRUCTION,
     `Detected intent: ${intent}.`,
     `Known trip context so far: ${JSON.stringify(context)}.`,
