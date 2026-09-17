@@ -55,6 +55,21 @@ const PREFERENCE_DISCLOSURE_INSTRUCTION =
   "wants non-veg options\"), treat that as an update for this trip, use it from then on, and " +
   "briefly acknowledge the change.";
 
+// Stay names used to be pure invention ("Hill Cafe Homestay", "Heritage
+// Guesthouse in Fort Kochi" — none of them real businesses), which also
+// made it impossible to put a trustworthy map pin or rating next to one.
+// Real results now arrive through the searchStays tool and land in the
+// grounding note; this is what stops the model from mixing its own
+// invented names back in alongside them.
+const STAYS_INSTRUCTION =
+  "When backend results below include stays (hotels/homestays/hostels/resorts), those are real, " +
+  "verified places — use ONLY those, never invent a hotel name, and never add extra stays from " +
+  "your own knowledge. For each one, give its name, its address, and its map link as a markdown " +
+  'link like "[View on map](url)" using exactly the map URL provided — do not build your own map ' +
+  "URL. Tell the user they can see that stay's live rating and reviews on the map link. You do " +
+  "not have rating numbers yourself, so never state or estimate a star rating. If no stays were " +
+  "returned, say you couldn't find verified stays for that destination rather than inventing some.";
+
 // Found live: with this instruction always present in the system prompt,
 // the model would occasionally volunteer the creator profile card
 // unprompted at the start of a completely unrelated answer (e.g. an
@@ -90,6 +105,7 @@ function buildSystemPrompt(
       "Keep answers concise and practical.",
     GENERAL_KNOWLEDGE_INSTRUCTION,
     PREFERENCE_DISCLOSURE_INSTRUCTION,
+    STAYS_INSTRUCTION,
     CREATOR_PROFILE_INSTRUCTION,
     `Detected intent: ${intent}.`,
     `Known trip context so far: ${JSON.stringify(context)}.`,

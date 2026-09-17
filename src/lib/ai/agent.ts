@@ -83,6 +83,16 @@ async function executeDecidedTool(
     args = { destination, durationDays, travelers, budget };
   }
 
+  // Same reasoning as createTrip above, narrower blast radius: the
+  // conversation's validated destination is the system of record, so a
+  // stays lookup must not run against whatever the model re-typed into the
+  // tool-call JSON (which is how "Kerala" becomes a descriptive sentence).
+  // Only overridden when context actually has one — the user can ask about
+  // stays somewhere before any trip context exists.
+  if (toolName === "searchStays" && input.context.destination) {
+    args = { destination: input.context.destination };
+  }
+
   try {
     const result = await runTool(toolName, args, { userId: input.userId });
     return {
@@ -197,6 +207,13 @@ async function stubDecideAndRunTool(input: DecideInput): Promise<AgentResult> {
       return { toolName: "createTrip", summary: result.summary, createdTripId: (result as { tripId: string }).tripId };
     }
     return null;
+  }
+
+  // Checked before the tripId guard below: asking where to stay doesn't
+  // require an existing trip, only a known destination.
+  if (/hotel|stay|accommodation|room|hostel|homestay|resort|lodge/.test(lower) && context.destination) {
+    const result = await runTool("searchStays", { destination: context.destination }, ctx);
+    return { toolName: "searchStays", summary: result.summary };
   }
 
   if (!tripId) return null;

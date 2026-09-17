@@ -7,6 +7,7 @@ import { recommendDestinations, recommendPlaces } from "@/lib/recommendations/re
 import { getPersonalizationSignal } from "@/lib/recommendations/personalization";
 import { getDestinationCenter } from "@/lib/planner/destinations";
 import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
+import { searchStays as searchStaysApi } from "@/lib/places/foursquare-client";
 
 // The controlled tool set the AI orchestrator may call (Section 13.3,
 // Appendix B). Each tool's Zod schema is both the runtime validator and
@@ -40,6 +41,10 @@ const searchDestinationArgs = z.object({
 const searchPlacesArgs = z.object({
   destination: z.string().min(1),
   interests: z.array(z.string()).default([]),
+});
+
+const searchStaysArgs = z.object({
+  destination: z.string().min(1).max(60),
 });
 
 const tripIdArgs = z.object({
@@ -117,6 +122,32 @@ export const tools = {
       return {
         results,
         summary: results.map((p) => `${p.name} (${p.category}, cost ${p.estimatedCost})`).join("; "),
+      };
+    },
+  },
+
+  searchStays: {
+    description:
+      "Look up real hotels, homestays, hostels and resorts in a destination, with their " +
+      "actual address, map coordinates and a Google Maps link. Call this whenever the user " +
+      "asks where to stay, about hotels/rooms/accommodation, or wants stay suggestions — " +
+      "never invent stay names yourself.",
+    args: searchStaysArgs,
+    async run(_ctx: ToolContext, args: z.infer<typeof searchStaysArgs>) {
+      const { stays, error } = await searchStaysApi(args.destination);
+      if (error) return { stays: [], summary: `Couldn't look up stays: ${error}.` };
+      if (stays.length === 0) {
+        return { stays, summary: `No stays found for ${args.destination}.` };
+      }
+      return {
+        stays,
+        summary: stays
+          .map(
+            (s) =>
+              `${s.name} (${s.category ?? "stay"}${s.address ? `, ${s.address}` : ""}) ` +
+              `[map: ${s.googleMapsUrl}]`
+          )
+          .join("; "),
       };
     },
   },
