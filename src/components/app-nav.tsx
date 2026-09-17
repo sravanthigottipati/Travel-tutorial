@@ -3,13 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "cn";
-import { UserMenu } from "@/components/user-menu";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/trips", label: "Trips" },
   { href: "/chat", label: "Chat" },
-  { href: "/profile", label: "Profile" },
 ] as const;
 
 type Props = {
@@ -47,7 +45,20 @@ export function AppNav({ user }: Props) {
             );
           })}
         </div>
-        <UserMenu name={user.name} email={user.email} />
+        <Link
+          href="/profile"
+          className={cn(
+            "flex items-center gap-2 rounded-full py-1 pr-3 pl-1 text-sm transition-colors",
+            pathname === "/profile" || pathname.startsWith("/profile/")
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+            {(user.name || user.email || "?").trim().charAt(0).toUpperCase()}
+          </span>
+          <span className="max-w-40 truncate">{user.email}</span>
+        </Link>
       </nav>
     </header>
   );
