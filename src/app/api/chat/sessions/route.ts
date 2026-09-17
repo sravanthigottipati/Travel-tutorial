@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
+import { MAX_CHAT_SESSIONS_PER_USER } from "@/lib/chat/session-retention";
 
-const RECENT_LIMIT = 15;
 const PREVIEW_LENGTH = 80;
 
 // Lists the user's own chat sessions, most recent first — the "Recent
@@ -19,7 +19,7 @@ export async function GET() {
   const sessions = await prisma.chatSession.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
-    take: RECENT_LIMIT,
+    take: MAX_CHAT_SESSIONS_PER_USER,
     include: {
       messages: { orderBy: { createdAt: "asc" }, take: 1 },
       trip: { select: { destination: true } },

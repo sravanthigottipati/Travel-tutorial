@@ -10,6 +10,7 @@ import { tools } from "@/lib/ai/tools";
 import { decideAndRunTool } from "@/lib/ai/agent";
 import { checkRateLimit, rateLimitResponseHeaders } from "@/lib/security/rate-limit";
 import { getPersonalizationSignal } from "@/lib/recommendations/personalization";
+import { enforceChatSessionLimit } from "@/lib/chat/session-retention";
 import { ChatRole } from "@/generated/prisma/client";
 
 // Section 22: "Apply rate limiting to public AI endpoints." Generous enough
@@ -58,6 +59,14 @@ export async function POST(request: Request) {
 
   const chatSession =
     existingSession ?? (await prisma.chatSession.create({ data: { userId } }));
+
+  // Only relevant right after creating a brand-new session — that's the
+  // only time the user's session count can grow past the cap. Runs before
+  // the response is built (not in `after()`) so a "Recent chats" open
+  // immediately following this request never sees a stale 11th entry.
+  if (!existingSession) {
+    await enforceChatSessionLimit(userId);
+  }
 
   const priorMessages = await prisma.chatMessage.findMany({
     where: { sessionId: chatSession.id },
