@@ -21,7 +21,7 @@ import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
 export type ToolContext = { userId: string };
 
 const createTripArgs = z.object({
-  destination: z.string().min(1),
+  destination: z.string().min(1).max(60),
   durationDays: z.number().int().positive(),
   travelers: z.number().int().positive(),
   budget: z.number().positive(),

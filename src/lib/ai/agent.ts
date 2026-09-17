@@ -76,6 +76,24 @@ async function groqDecideAndRunTool(input: DecideInput): Promise<AgentResult> {
     return null;
   }
 
+  // createTrip is special-cased: its fields must come from the already
+  // Zod-validated TripContext (the documented system-of-record, Section
+  // 14), never from the model's own freeform re-generation of them inside
+  // the tool-call JSON. The two extraction passes (JSON-mode entity
+  // extraction vs. function-calling) can disagree — observed live, a
+  // message correctly extracted context.destination "Kerala" while the
+  // same turn's createTrip tool call invented a full descriptive sentence
+  // ("The Western Ghats, particularly Kerala, is a haven...") as the
+  // destination. Overriding with context sidesteps that class of bug
+  // entirely rather than trying to validate/sanitize free-form model output.
+  if (name === "createTrip") {
+    const { destination, durationDays, travelers, budget } = input.context;
+    if (!destination || !durationDays || !travelers || !budget) {
+      return null; // not enough confirmed context yet — don't let the model invent trip fields
+    }
+    args = { destination, durationDays, travelers, budget };
+  }
+
   try {
     const result = await runTool(name, args, { userId: input.userId });
     return {

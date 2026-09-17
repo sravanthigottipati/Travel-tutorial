@@ -121,6 +121,10 @@ const PLACES: Partial<Record<(typeof KNOWN_DESTINATIONS)[number], CandidatePlace
     { name: "Varkala cliffside beach", category: "beaches", estimatedCost: 0, durationHours: 3 },
     { name: "Athirappilly waterfalls", category: "adventure", estimatedCost: 500, durationHours: 4 },
     { name: "Kochi spice market walk", category: "shopping", estimatedCost: 200, durationHours: 2 },
+    { name: "Wayanad Wildlife Sanctuary trek", category: "wildlife", estimatedCost: 900, durationHours: 4 },
+    { name: "Bekal Fort visit", category: "history", estimatedCost: 100, durationHours: 2 },
+    { name: "Marari Beach relaxation", category: "relaxation", estimatedCost: 0, durationHours: 3 },
+    { name: "Kumarakom Bird Sanctuary", category: "wildlife", estimatedCost: 300, durationHours: 2.5 },
   ],
   manali: [
     { name: "Solang Valley adventure sports", category: "adventure", estimatedCost: 2000, durationHours: 4 },

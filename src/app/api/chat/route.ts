@@ -97,14 +97,26 @@ export async function POST(request: Request) {
   // stub) decide whether this message requires an actual backend action —
   // creating a trip, modifying an itinerary, recalculating a budget, etc.
   // — rather than just talking about it.
-  const toolResult = await decideAndRunTool({
-    history,
-    message,
-    context: mergedContext,
-    intent,
-    userId,
-    tripId: chatSession.tripId,
-  });
+  //
+  // Deliberately caught rather than left to propagate: a transient failure
+  // here (e.g. Groq rate-limiting the tool-calling request) used to crash
+  // the whole turn with a 500 and no reply at all, even though the
+  // conversational reply below has its own independent fallback and
+  // doesn't actually need the tool call to succeed. Treating it as "no
+  // tool call this turn" degrades gracefully instead.
+  let toolResult: Awaited<ReturnType<typeof decideAndRunTool>> = null;
+  try {
+    toolResult = await decideAndRunTool({
+      history,
+      message,
+      context: mergedContext,
+      intent,
+      userId,
+      tripId: chatSession.tripId,
+    });
+  } catch {
+    toolResult = null;
+  }
 
   if (toolResult?.createdTripId && !chatSession.tripId) {
     await prisma.chatSession.update({
