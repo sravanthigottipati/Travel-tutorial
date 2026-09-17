@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "cn";
-import { SignOutButton } from "@/components/sign-out-button";
+import { UserMenu } from "@/components/user-menu";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -12,7 +12,11 @@ const LINKS = [
   { href: "/profile", label: "Profile" },
 ] as const;
 
-export function AppNav() {
+type Props = {
+  user: { name: string; email: string };
+};
+
+export function AppNav({ user }: Props) {
   const pathname = usePathname();
 
   return (
@@ -43,7 +47,7 @@ export function AppNav() {
             );
           })}
         </div>
-        <SignOutButton />
+        <UserMenu name={user.name} email={user.email} />
       </nav>
     </header>
   );

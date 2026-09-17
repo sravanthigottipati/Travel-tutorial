@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth/auth";
 import { AppNav } from "@/components/app-nav";
 
 // A Fragment, not a wrapping <div>: the root layout's <body> is already
@@ -7,10 +9,15 @@ import { AppNav } from "@/components/app-nav";
 // Playwright's `page.locator("div", { has: ... })` locators (used to find
 // "the div containing Day 2") started matching this new outer div first
 // (it contains every day's text too) instead of the specific day card.
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
   return (
     <>
-      <AppNav />
+      <AppNav user={{ name: session.user.name ?? "", email: session.user.email ?? "" }} />
       {children}
     </>
   );
