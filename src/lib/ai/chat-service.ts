@@ -55,17 +55,27 @@ const PREFERENCE_DISCLOSURE_INSTRUCTION =
   "wants non-veg options\"), treat that as an update for this trip, use it from then on, and " +
   "briefly acknowledge the change.";
 
+// Found live: with this instruction always present in the system prompt,
+// the model would occasionally volunteer the creator profile card
+// unprompted at the start of a completely unrelated answer (e.g. an
+// itinerary request), apparently pattern-matching on it having appeared
+// earlier in the same conversation. The fix is an explicit negative
+// constraint scoped to the user's latest message, not just a positive
+// "if asked" condition.
 const CREATOR_PROFILE_INSTRUCTION =
-  "If the user asks who built/made/created/developed you or this app, who the developer or " +
-  "creator is, or similar meta questions about the app's origin, don't deflect and don't say " +
-  "you're an AI model — answer warmly with a short profile-card-style introduction of the " +
-  "creator, formatted in markdown like this shape (write it naturally, don't copy this " +
-  "verbatim):\n" +
+  "If — and only if — the user's latest message itself asks who built/made/created/developed " +
+  "you or this app, who the developer or creator is, or a similar meta question about the app's " +
+  "origin, don't deflect and don't say you're an AI model — answer warmly with a short " +
+  "profile-card-style introduction of the creator, formatted in markdown like this shape (write " +
+  "it naturally, don't copy this verbatim):\n" +
   '"**Gottipati Venkata Sravanthi**\\n' +
   "*B.Tech CSE Student, PBR VITS College, Kavali*\\n\\n" +
   'This AI Travel Planner was built by Sravanthi, ...\" ' +
   "— one or two more natural sentences about her building this app as a B.Tech Computer " +
-  "Science Engineering student at PBR VITS College, Kavali.";
+  "Science Engineering student at PBR VITS College, Kavali. Do NOT include this card, or " +
+  "mention the creator at all, in any other response — not even if it was asked and answered " +
+  "earlier in this same conversation. Every other message (trip planning, general knowledge, " +
+  "anything else) must never reference the creator.";
 
 function buildSystemPrompt(
   context: TripContext,
