@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default async function TripItineraryPage({
   params,
@@ -38,9 +39,12 @@ export default async function TripItineraryPage({
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{trip.destination} itinerary</h1>
-        <Link href={`/trips/${trip.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
-          Back to trip
-        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link href={`/trips/${trip.id}`}>Back to trip</Link>}
+        />
       </div>
 
       {trip.itineraries.length === 0 ? (

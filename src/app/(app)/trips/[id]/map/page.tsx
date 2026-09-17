@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getDestinationCenter } from "@/lib/planner/destinations";
 import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { MapLoader } from "./map-loader";
 
 export default async function TripMapPage({
@@ -35,9 +36,12 @@ export default async function TripMapPage({
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{trip.destination} — map & weather</h1>
-        <Link href={`/trips/${trip.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
-          Back to trip
-        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link href={`/trips/${trip.id}`}>Back to trip</Link>}
+        />
       </div>
 
       {!center ? (

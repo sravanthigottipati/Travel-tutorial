@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { RecalculateBudgetButton } from "./recalculate-budget-button";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -42,9 +43,12 @@ export default async function TripBudgetPage({
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{trip.destination} budget</h1>
-        <Link href={`/trips/${trip.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
-          Back to trip
-        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link href={`/trips/${trip.id}`}>Back to trip</Link>}
+        />
       </div>
 
       {trip.expenses.length === 0 ? (
