@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,6 +23,12 @@ import { TripContextPanel } from "./trip-context-panel";
 // assistant text stays exactly as XSS-safe as the plain-text rendering it
 // replaces, while no longer showing literal "**bold**" / "* bullet"
 // syntax to the user.
+//
+// remarkGfm (below, passed to ReactMarkdown) is what actually parses
+// "| Meal | Cost |\n|---|---|\n| Lunch | ₹300 |"-style tables into real
+// table/tr/td nodes — without it, react-markdown treats GFM tables as
+// plain text and every pipe/dash renders literally, which is exactly the
+// "clumsy" jumbled-table look this was reported for.
 const markdownComponents = {
   p: (props: React.ComponentPropsWithoutRef<"p">) => <p className="mb-2 last:mb-0" {...props} />,
   ul: (props: React.ComponentPropsWithoutRef<"ul">) => (
@@ -50,6 +57,21 @@ const markdownComponents = {
     <code className="rounded bg-black/10 px-1 py-0.5 text-xs" {...props} />
   ),
   hr: () => <hr className="my-2 border-border" />,
+  table: (props: React.ComponentPropsWithoutRef<"table">) => (
+    <div className="mb-2 overflow-x-auto last:mb-0">
+      <table className="w-full border-collapse text-left text-sm" {...props} />
+    </div>
+  ),
+  thead: (props: React.ComponentPropsWithoutRef<"thead">) => (
+    <thead className="border-b border-border" {...props} />
+  ),
+  tr: (props: React.ComponentPropsWithoutRef<"tr">) => (
+    <tr className="border-b border-border last:border-0" {...props} />
+  ),
+  th: (props: React.ComponentPropsWithoutRef<"th">) => (
+    <th className="py-1 pr-3 font-semibold" {...props} />
+  ),
+  td: (props: React.ComponentPropsWithoutRef<"td">) => <td className="py-1 pr-3 align-top" {...props} />,
 } as const;
 
 type Message = {
@@ -247,7 +269,9 @@ export function ChatWindow({
             >
               {m.role === "assistant" ? (
                 m.content ? (
-                  <ReactMarkdown components={markdownComponents}>{m.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {m.content}
+                  </ReactMarkdown>
                 ) : isSending ? (
                   "…"
                 ) : (
