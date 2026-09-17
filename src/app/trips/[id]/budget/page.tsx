@@ -57,7 +57,9 @@ export default async function TripBudgetPage({
             <CardTitle>Expense breakdown</CardTitle>
             <CardDescription>
               Deterministic estimate — see Section 16 of the project documentary. Non-activity
-              categories use placeholder rates until real pricing data is wired in.
+              categories use a pricing tier (budget/mid-range/luxury) selected from your stated
+              budget and scaled for {trip.destination}&apos;s relative cost of travel, until real
+              pricing data is wired in.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">

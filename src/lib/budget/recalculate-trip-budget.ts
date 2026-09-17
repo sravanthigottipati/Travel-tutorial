@@ -22,6 +22,7 @@ export async function recalculateTripBudget(tripId: string): Promise<BudgetSumma
   const summary = buildBudgetSummary(
     trip.durationDays,
     trip.travelers,
+    trip.destination,
     activitiesCost,
     Number(trip.budget)
   );
