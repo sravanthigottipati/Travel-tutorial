@@ -28,6 +28,7 @@ export default async function ChatPage() {
       initialSessionId={latestSession?.id ?? null}
       initialMessages={initialMessages}
       initialContext={parseStoredTripContext(latestSession?.context)}
+      initialTripId={latestSession?.tripId ?? null}
     />
   );
 }

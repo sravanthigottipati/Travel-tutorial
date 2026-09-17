@@ -2,9 +2,17 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogPortal,
+  AlertDialogPopup,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 import { cn } from "cn";
 import { emptyTripContext, type TripContext } from "@/lib/ai/trip-context";
 import { TripContextPanel } from "./trip-context-panel";
@@ -53,15 +61,25 @@ type Props = {
   initialSessionId: string | null;
   initialMessages: Message[];
   initialContext: TripContext;
+  initialTripId: string | null;
 };
 
-export function ChatWindow({ initialSessionId, initialMessages, initialContext }: Props) {
+export function ChatWindow({ initialSessionId, initialMessages, initialContext, initialTripId }: Props) {
+  const router = useRouter();
   const [sessionId, setSessionId] = useState(initialSessionId);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [context, setContext] = useState<TripContext>(initialContext ?? emptyTripContext);
-  const [toolTripId, setToolTripId] = useState<string | null>(null);
+  // Seeded from the loaded session's own tripId (not just tool-call
+  // responses from this page load) — otherwise reloading a chat that had
+  // already created a trip in an earlier session would forget that and
+  // both hide "View the trip" and wrongly treat the conversation as
+  // unsaved when starting a new chat.
+  const [toolTripId, setToolTripId] = useState<string | null>(initialTripId);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [showNewChatConfirm, setShowNewChatConfirm] = useState(false);
+  const [isSavingBeforeNewChat, setIsSavingBeforeNewChat] = useState(false);
+  const [newChatSaveError, setNewChatSaveError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   function scrollToBottom() {
@@ -137,9 +155,66 @@ export function ChatWindow({ initialSessionId, initialMessages, initialContext }
     }
   }
 
+  function startNewChat() {
+    setSessionId(null);
+    setMessages([]);
+    setContext(emptyTripContext);
+    setToolTripId(null);
+    setInput("");
+    setNewChatSaveError(null);
+    setShowNewChatConfirm(false);
+  }
+
+  function handleNewChatClick() {
+    // Nothing worth asking about: no conversation yet, or this session's
+    // context already became a trip (via the agent or a manual "Save as
+    // trip") — either way there's nothing unsaved to lose.
+    const hasUnsavedConversation = messages.length > 0 && !toolTripId;
+    if (!hasUnsavedConversation) {
+      startNewChat();
+      return;
+    }
+    setNewChatSaveError(null);
+    setShowNewChatConfirm(true);
+  }
+
+  async function handleSaveAndStartNewChat() {
+    if (!sessionId) {
+      startNewChat();
+      return;
+    }
+    setIsSavingBeforeNewChat(true);
+    setNewChatSaveError(null);
+    try {
+      const res = await fetch("/api/trips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromSessionId: sessionId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setNewChatSaveError(data.error ?? "Couldn't save this conversation as a trip.");
+        return;
+      }
+      router.refresh();
+      startNewChat();
+    } catch {
+      setNewChatSaveError("Couldn't save this conversation as a trip.");
+    } finally {
+      setIsSavingBeforeNewChat(false);
+    }
+  }
+
   return (
     <div className="flex flex-1">
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-sm font-medium text-muted-foreground">Chat</h1>
+          <Button variant="outline" size="sm" onClick={handleNewChatClick} disabled={isSending}>
+            New chat
+          </Button>
+        </div>
+
         <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto">
           {messages.length === 0 && (
             <p className="text-sm text-muted-foreground">
@@ -194,6 +269,42 @@ export function ChatWindow({ initialSessionId, initialMessages, initialContext }
         </form>
       </div>
       <TripContextPanel context={context} sessionId={sessionId} />
+
+      <AlertDialog open={showNewChatConfirm} onOpenChange={setShowNewChatConfirm}>
+        <AlertDialogPortal>
+          <AlertDialogPopup>
+            <AlertDialogTitle>Save this conversation first?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This chat hasn&apos;t been saved as a trip yet. If you start a new chat without
+              saving, you won&apos;t be able to come back to this conversation.
+            </AlertDialogDescription>
+            {newChatSaveError && (
+              <p className="mt-2 text-sm text-destructive">{newChatSaveError}</p>
+            )}
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowNewChatConfirm(false)}
+                disabled={isSavingBeforeNewChat}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={startNewChat}
+                disabled={isSavingBeforeNewChat}
+              >
+                Discard & start new
+              </Button>
+              <Button size="sm" onClick={handleSaveAndStartNewChat} disabled={isSavingBeforeNewChat}>
+                {isSavingBeforeNewChat ? "Saving…" : "Save & start new"}
+              </Button>
+            </div>
+          </AlertDialogPopup>
+        </AlertDialogPortal>
+      </AlertDialog>
     </div>
   );
 }
