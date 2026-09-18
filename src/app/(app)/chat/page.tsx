@@ -6,18 +6,33 @@ import { mergeTripContext, parseStoredTripContext, emptyTripContext } from "@/li
 import { getPersonalizationSignal } from "@/lib/recommendations/personalization";
 import { ChatWindow } from "./chat-window";
 
-export default async function ChatPage() {
+export default async function ChatPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sessionId?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
+  const { sessionId: requestedSessionId } = await searchParams;
 
+  // Coming from a trip's "Chat" button (?sessionId=...) should reopen that
+  // trip's own conversation, not whatever the user chatted about most
+  // recently — ownership-checked the same way every other session lookup
+  // in this app is, so a guessed/foreign id just renders a fresh empty
+  // chat below rather than ever exposing someone else's conversation.
   const [latestSession, personalization] = await Promise.all([
-    prisma.chatSession.findFirst({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-      include: { messages: { orderBy: { createdAt: "asc" } } },
-    }),
+    requestedSessionId
+      ? prisma.chatSession.findFirst({
+          where: { id: requestedSessionId, userId: session.user.id },
+          include: { messages: { orderBy: { createdAt: "asc" } } },
+        })
+      : prisma.chatSession.findFirst({
+          where: { userId: session.user.id },
+          orderBy: { createdAt: "desc" },
+          include: { messages: { orderBy: { createdAt: "asc" } } },
+        }),
     getPersonalizationSignal(session.user.id),
   ]);
 
