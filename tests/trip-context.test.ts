@@ -17,6 +17,17 @@ describe("mergeTripContext", () => {
     expect(merged.interests).toEqual(expect.arrayContaining(["beaches", "photography"]));
     expect(merged.interests).toHaveLength(2);
   });
+
+  it("caps the merged interests list even when each update is individually within bounds", () => {
+    // Found in a VAPT re-check: tripContextSchema caps interests at 20 per
+    // update, but the union across turns could still grow unbounded — turn
+    // 1 contributes 20 distinct interests, turn 2 contributes 20 more, etc.
+    let context = { interests: Array.from({ length: 20 }, (_, i) => `interest-${i}`) };
+    context = mergeTripContext(context, {
+      interests: Array.from({ length: 20 }, (_, i) => `other-${i}`),
+    });
+    expect(context.interests.length).toBeLessThanOrEqual(20);
+  });
 });
 
 describe("parseStoredTripContext", () => {

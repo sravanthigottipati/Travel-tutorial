@@ -14,7 +14,11 @@ export const tripContextSchema = z.object({
   durationDays: z.number().int().positive().max(60).optional(),
   travelers: z.number().int().positive().max(20).optional(),
   budget: z.number().positive().max(100_000_000).optional(),
-  interests: z.array(z.string()).default([]),
+  // Bound matches profile/route.ts's UserPreferences.interests cap — this
+  // is the other place the same data can grow (AI-extracted from
+  // conversation rather than the profile form), so it needs the same
+  // ceiling to stop unbounded growth in the stored ChatSession.context JSON.
+  interests: z.array(z.string().max(50)).max(20).default([]),
   foodPreference: z.string().optional(),
 });
 
@@ -53,9 +57,18 @@ export function parseStoredTripContext(value: unknown): TripContext {
   return { interests: [], ...fields };
 }
 
+// Cap on the FINAL merged interests list, not just one update's — each
+// individual update is already capped by the schema (max 20), but a union
+// across many conversation turns can still grow past that indefinitely
+// (turn 1 gives 20 new interests, turn 2 gives 20 different ones, etc.).
+// Found in a VAPT re-check: 20 keeps this in line with the same field's
+// cap everywhere else it's set (profile/route.ts's UserPreferences).
+const MAX_MERGED_INTERESTS = 20;
+
 // Merges a partial update (typically AI-extracted from the latest message)
 // into the existing trip context. Scalars are overwritten when present;
-// interests are unioned so earlier-stated interests aren't lost.
+// interests are unioned (then re-capped) so earlier-stated interests
+// aren't lost, but the list still can't grow without bound.
 export function mergeTripContext(
   base: TripContext,
   update: Partial<TripContext>
@@ -68,6 +81,6 @@ export function mergeTripContext(
   return {
     ...base,
     ...update,
-    interests: Array.from(mergedInterests),
+    interests: Array.from(mergedInterests).slice(0, MAX_MERGED_INTERESTS),
   };
 }

@@ -33,23 +33,31 @@ export async function POST(
   return NextResponse.json(result);
 }
 
+// Bounds mirror the AI tool-calling path's modifyItinerary args (tools.ts)
+// — this is the other route that can write the same Itinerary/Activity
+// rows, so it needs the same ceiling. Found in a VAPT re-check: this
+// endpoint had no array-length or string-length limits at all, so an
+// authenticated user could PUT a single request with, say, 50,000 days of
+// 50,000 activities each — a resource-exhaustion DoS via the $transaction
+// below, not a hypothetical: durationDays/travelers/budget already got
+// this treatment for exactly this class of issue (see trip-schema.ts).
 const activityInput = z.object({
-  name: z.string().trim().min(1),
-  location: z.string().trim().nullable().optional(),
-  startTime: z.string().trim().nullable().optional(),
-  endTime: z.string().trim().nullable().optional(),
-  estimatedCost: z.number().nonnegative().default(0),
-  notes: z.string().trim().nullable().optional(),
+  name: z.string().trim().min(1).max(60),
+  location: z.string().trim().max(120).nullable().optional(),
+  startTime: z.string().trim().max(20).nullable().optional(),
+  endTime: z.string().trim().max(20).nullable().optional(),
+  estimatedCost: z.number().nonnegative().max(100_000_000).default(0),
+  notes: z.string().trim().max(300).nullable().optional(),
 });
 
 const dayInput = z.object({
-  dayNumber: z.number().int().positive(),
-  title: z.string().trim().min(1),
-  activities: z.array(activityInput),
+  dayNumber: z.number().int().positive().max(60),
+  title: z.string().trim().min(1).max(100),
+  activities: z.array(activityInput).max(30),
 });
 
 const updateItinerarySchema = z.object({
-  days: z.array(dayInput).min(1),
+  days: z.array(dayInput).min(1).max(60),
 });
 
 // Manual edit: replaces the itinerary with a caller-supplied day/activity
