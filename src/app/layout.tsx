@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -13,14 +14,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// The brand wordmark's font (see --font-display in globals.css) — an
-// elegant, high-contrast serif for "Travel Tutorial" specifically, not a
-// general heading font. Deliberately only loaded with the weights the
-// wordmark actually uses.
-const playfairDisplay = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["600", "700"],
+// The brand wordmark's font (see --font-display in globals.css) — Satoshi
+// specifically, not a general heading font. Not on Google Fonts, so it's
+// self-hosted via next/font/local instead of next/font/google, same
+// zero-layout-shift/no-external-request optimization either way. The
+// variable-weight file covers 300–900 in one file — see
+// src/assets/fonts/SATOSHI-LICENSE.txt for Fontshare's free-use terms.
+const satoshi = localFont({
+  src: "../assets/fonts/Satoshi-Variable.woff2",
+  variable: "--font-satoshi",
+  weight: "300 900",
 });
 
 export const metadata: Metadata = {
@@ -32,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${satoshi.variable} h-full antialiased`}
       // next-themes sets the .dark class on this element client-side
       // (before paint, via an injected script) based on saved/system
       // preference — that legitimately makes the server-rendered and
