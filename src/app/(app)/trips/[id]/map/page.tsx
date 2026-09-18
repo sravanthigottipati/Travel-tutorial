@@ -6,7 +6,7 @@ import { getDestinationCenter } from "@/lib/planner/destinations";
 import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapLoader } from "./map-loader";
+import { MapLoader } from "@/components/trip-map/map-loader";
 
 export default async function TripMapPage({
   params,

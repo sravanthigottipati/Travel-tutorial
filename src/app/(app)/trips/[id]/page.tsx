@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GenerateItineraryButton } from "./generate-itinerary-button";
 import { DeleteTripButton } from "./delete-trip-button";
+import { ShareTripButton } from "./share-trip-button";
 
 export default async function TripDashboardPage({
   params,
@@ -49,6 +50,18 @@ export default async function TripDashboardPage({
           )}
           <Button variant="outline" render={<Link href={`/trips/${trip.id}/map`}>Map & weather</Link>} nativeButton={false} />
           <DeleteTripButton tripId={trip.id} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Share this trip</CardTitle>
+          <CardDescription>
+            Get a link anyone can open to view the itinerary, budget and map — no login required.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ShareTripButton tripId={trip.id} initialShareToken={trip.shareToken} />
         </CardContent>
       </Card>
     </main>

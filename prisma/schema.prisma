@@ -63,6 +63,11 @@ model Trip {
   status      TripStatus @default(DRAFT)
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
+  // Null until the owner turns sharing on. A high-entropy random value
+  // (see share-token.ts), never a sequential/guessable id — this is the
+  // sole authorization check the public /shared/[token] page performs, so
+  // its unguessability IS the access control.
+  shareToken  String?    @unique @map("share_token")
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   itineraries  Itinerary[]
