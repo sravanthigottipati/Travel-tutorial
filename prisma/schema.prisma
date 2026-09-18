@@ -1,4 +1,4 @@
-// AI Travel Planner — data model
+// Travel Tutorial — data model
 // Mirrors the ER design in the project documentary (Section 19, Table 14):
 // users -> user_preferences, trips -> itineraries -> activities, trips -> expenses,
 // users -> chat_sessions -> chat_messages.

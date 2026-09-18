@@ -64,7 +64,7 @@ export default function RegisterPage() {
         <CardHeader>
           <CardTitle>Create your account</CardTitle>
           <CardDescription>
-            Start planning trips with the AI Travel Planner.
+            Start planning trips with Travel Tutorial.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

@@ -56,8 +56,8 @@ export default async function SharedTripPage({
     <>
       <header className="border-b border-border">
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-6 py-3">
-          <Link href="/" className="text-sm font-semibold tracking-tight">
-            AI Travel Planner
+          <Link href="/" className="font-display text-lg font-semibold tracking-tight">
+            Travel Tutorial
           </Link>
           <span className="text-xs text-muted-foreground">Shared trip · view only</span>
         </div>

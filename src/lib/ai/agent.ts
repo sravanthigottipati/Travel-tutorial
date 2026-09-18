@@ -46,7 +46,7 @@ function buildToolDefinitions() {
 
 function orchestratorSystemPrompt(input: DecideInput): string {
   return (
-    "You are the AI Travel Planner's orchestrator. Call at most one tool if the " +
+    "You are Travel Tutorial's orchestrator. Call at most one tool if the " +
     `user's message clearly requires one. Known trip context: ${JSON.stringify(input.context)}. ` +
     `Active trip id: ${input.tripId ?? "none"}. Detected intent: ${input.intent}. ` +
     "If no tool is needed, respond with no tool call."

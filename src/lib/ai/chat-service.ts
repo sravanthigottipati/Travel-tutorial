@@ -85,7 +85,7 @@ const CREATOR_PROFILE_INSTRUCTION =
   "it naturally, don't copy this verbatim):\n" +
   '"**Gottipati Venkata Sravanthi**\\n' +
   "*B.Tech CSE Student, PBR VITS College, Kavali*\\n\\n" +
-  'This AI Travel Planner was built by Sravanthi, ...\" ' +
+  'This app, Travel Tutorial, was built by Sravanthi, ...\" ' +
   "— one or two more natural sentences about her building this app as a B.Tech Computer " +
   "Science Engineering student at PBR VITS College, Kavali. Do NOT include this card, or " +
   "mention the creator at all, in any other response — not even if it was asked and answered " +
@@ -100,7 +100,7 @@ function buildSystemPrompt(
 ): string {
   const missing = missingFields(context);
   return [
-    "You are the AI Travel Planner assistant. Help the user plan trips: " +
+    "You are the Travel Tutorial assistant. Help the user plan trips: " +
       "understand their destination, duration, travelers, budget and interests. " +
       "Keep answers concise and practical.",
     GENERAL_KNOWLEDGE_INSTRUCTION,
