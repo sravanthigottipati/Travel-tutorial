@@ -17,6 +17,7 @@ import {
 import { cn } from "cn";
 import { emptyTripContext, parseStoredTripContext, type TripContext } from "@/lib/ai/trip-context";
 import { SaveTripButton } from "./save-trip-button";
+import { VoiceInputButton } from "./voice-input-button";
 
 function formatRelativeDate(iso: string): string {
   const date = new Date(iso);
@@ -451,6 +452,12 @@ export function ChatWindow({
             onChange={(e) => setInput(e.target.value)}
             placeholder="Plan a 4-day Goa trip for 3 people under ₹20,000…"
             disabled={isSending}
+          />
+          <VoiceInputButton
+            disabled={isSending}
+            onTranscript={(text) =>
+              setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text))
+            }
           />
           <Button type="submit" disabled={isSending || !input.trim()}>
             Send
