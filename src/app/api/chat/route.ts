@@ -24,6 +24,7 @@ const bodySchema = z.object({
   // starts at null, not undefined) — accept both.
   sessionId: z.string().nullable().optional(),
   message: z.string().trim().min(1).max(4000),
+  hiddenGems: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  const { message, sessionId: requestedSessionId } = parsed.data;
+  const { message, sessionId: requestedSessionId, hiddenGems } = parsed.data;
 
   const existingSession = requestedSessionId
     ? await prisma.chatSession.findFirst({
@@ -99,7 +100,11 @@ export async function POST(request: Request) {
       });
 
   const { intent, update } = await extractTripUpdate(message, currentContext);
-  const mergedContext = mergeTripContext(currentContext, update);
+  // The toggle is the only authority on this flag — never the model's extracted update.
+  const mergedContext = {
+    ...mergeTripContext(currentContext, update),
+    hiddenGems: hiddenGems ?? currentContext.hiddenGems,
+  };
 
   await prisma.chatSession.update({
     where: { id: chatSession.id },

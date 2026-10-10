@@ -18,6 +18,33 @@ import { cn } from "cn";
 import { emptyTripContext, parseStoredTripContext, type TripContext } from "@/lib/ai/trip-context";
 import { SaveTripButton } from "./save-trip-button";
 import { VoiceInputButton } from "./voice-input-button";
+import { useAutoRead, useSpeech } from "./use-speech";
+
+function SpeakerIcon({ playing }: { playing: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M11 5 6 9H2v6h4l5 4V5z" fill={playing ? "currentColor" : "none"} />
+      {playing ? (
+        <rect x="16" y="9" width="6" height="6" rx="1" fill="currentColor" stroke="none" />
+      ) : (
+        <>
+          <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+          <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+        </>
+      )}
+    </svg>
+  );
+}
 
 function formatRelativeDate(iso: string): string {
   const date = new Date(iso);
@@ -114,6 +141,7 @@ type Props = {
   // panel doesn't blank out something the app already knows about the
   // user, only to have it reappear once the first message round-trips.
   personalizedContext: TripContext;
+  initialInput?: string;
 };
 
 export function ChatWindow({
@@ -122,6 +150,7 @@ export function ChatWindow({
   initialContext,
   initialTripId,
   personalizedContext,
+  initialInput = "",
 }: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState(initialSessionId);
@@ -133,7 +162,7 @@ export function ChatWindow({
   // both hide "View the trip" and wrongly treat the conversation as
   // unsaved when starting a new chat.
   const [toolTripId, setToolTripId] = useState<string | null>(initialTripId);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialInput);
   const [isSending, setIsSending] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [isSavingBeforeAction, setIsSavingBeforeAction] = useState(false);
@@ -142,6 +171,9 @@ export function ChatWindow({
   const [recentSessions, setRecentSessions] = useState<RecentSession[] | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const speech = useSpeech();
+  const [autoRead, setAutoRead] = useAutoRead();
+  const [hiddenGems, setHiddenGems] = useState(initialContext?.hiddenGems ?? false);
 
   // Was previously shown in a "Trip so far" side panel that also held the
   // "Save as trip" button — removed per feedback (redundant with the saved
@@ -162,6 +194,9 @@ export function ChatWindow({
     const trimmed = input.trim();
     if (!trimmed || isSending) return;
 
+    speech.stop();
+    const assistantIndex = messages.length + 1;
+    let fullReply = "";
     setInput("");
     setIsSending(true);
     setMessages((prev) => [
@@ -175,7 +210,7 @@ export function ChatWindow({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, message: trimmed }),
+        body: JSON.stringify({ sessionId, message: trimmed, hiddenGems }),
       });
 
       const returnedSessionId = res.headers.get("X-Session-Id");
@@ -202,6 +237,7 @@ export function ChatWindow({
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
+        fullReply += chunk;
         setMessages((prev) => {
           const next = [...prev];
           const last = next[next.length - 1];
@@ -210,6 +246,8 @@ export function ChatWindow({
         });
         scrollToBottom();
       }
+
+      if (autoRead && fullReply.trim()) speech.speak(String(assistantIndex), fullReply);
     } catch {
       setMessages((prev) => {
         const next = [...prev];
@@ -225,9 +263,11 @@ export function ChatWindow({
   }
 
   function resetToNewChat() {
+    speech.stop();
     setSessionId(null);
     setMessages([]);
     setContext(personalizedContext);
+    setHiddenGems(false);
     setToolTripId(null);
     setInput("");
   }
@@ -238,6 +278,7 @@ export function ChatWindow({
       setRecentError("Couldn't load that conversation.");
       return false;
     }
+    speech.stop();
     const data = await res.json();
     const loaded = data.session as {
       id: string;
@@ -251,7 +292,9 @@ export function ChatWindow({
         .filter((m) => m.role !== "SYSTEM")
         .map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.message }))
     );
-    setContext(parseStoredTripContext(loaded.context));
+    const loadedContext = parseStoredTripContext(loaded.context);
+    setContext(loadedContext);
+    setHiddenGems(loadedContext.hiddenGems ?? false);
     setToolTripId(loaded.tripId);
     setInput("");
     return true;
@@ -334,14 +377,40 @@ export function ChatWindow({
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-sm font-medium text-muted-foreground">Chat</h1>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => requestAction({ type: "new" })}
-            disabled={isSending}
-          >
-            New chat
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={hiddenGems ? "default" : "outline"}
+              size="sm"
+              onClick={() => setHiddenGems(!hiddenGems)}
+              aria-pressed={hiddenGems}
+              title="Prefer lesser-known places and show how crowded each one is"
+            >
+              Hidden gems: {hiddenGems ? "On" : "Off"}
+            </Button>
+            {speech.supported && (
+              <Button
+                variant={autoRead ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  if (autoRead) speech.stop();
+                  setAutoRead(!autoRead);
+                }}
+                aria-pressed={autoRead}
+                title="Speak each new reply aloud"
+              >
+                <SpeakerIcon playing={false} />
+                Read aloud: {autoRead ? "On" : "Off"}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => requestAction({ type: "new" })}
+              disabled={isSending}
+            >
+              New chat
+            </Button>
+          </div>
         </div>
 
         <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto">
@@ -363,9 +432,26 @@ export function ChatWindow({
             >
               {m.role === "assistant" ? (
                 m.content ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                    {m.content}
-                  </ReactMarkdown>
+                  <>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                      {m.content}
+                    </ReactMarkdown>
+                    {speech.supported && !(isSending && i === messages.length - 1) && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          speech.speakingKey === String(i)
+                            ? speech.stop()
+                            : speech.speak(String(i), m.content)
+                        }
+                        aria-label={speech.speakingKey === String(i) ? "Stop reading" : "Read this reply aloud"}
+                        title={speech.speakingKey === String(i) ? "Stop" : "Read aloud"}
+                        className="mt-1 flex items-center text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <SpeakerIcon playing={speech.speakingKey === String(i)} />
+                      </button>
+                    )}
+                  </>
                 ) : isSending ? (
                   "…"
                 ) : (
@@ -455,6 +541,7 @@ export function ChatWindow({
           />
           <VoiceInputButton
             disabled={isSending}
+            onStart={speech.stop}
             onTranscript={(text) =>
               setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text))
             }

@@ -16,7 +16,7 @@
 // from each result's Google Maps link instead, which needs no API key and
 // shows the live rating rather than a cached copy.
 
-import { getDestinationCenter } from "@/lib/planner/destinations";
+import { resolveDestinationCenter } from "@/lib/places/geocode";
 
 const PLACES_ENDPOINT = "https://places-api.foursquare.com/places/search";
 
@@ -136,12 +136,11 @@ export async function searchStays(
     return { stays: [], error: "Foursquare is not configured" };
   }
 
-  // Same guard getWeather already applies: without a curated centre there's
-  // no trustworthy anchor, and falling back to text search is what produced
-  // Italian hotels for Goa.
-  const center = getDestinationCenter(destination);
+  // Anchor on coordinates, never Foursquare's text search — that is what
+  // produced Italian hotels for Goa.
+  const center = await resolveDestinationCenter(destination);
   if (!center) {
-    return { stays: [], error: `No curated location data for ${destination} yet` };
+    return { stays: [], error: `Couldn't find a location for ${destination}` };
   }
 
   const url = new URL(PLACES_ENDPOINT);

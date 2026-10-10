@@ -13,5 +13,11 @@ export default NextAuth(authConfig).auth;
 // defense-in-depth/consistency with the other three, not because anything
 // was actually exposed.
 export const config = {
-  matcher: ["/dashboard/:path*", "/chat/:path*", "/trips/:path*", "/profile/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/chat/:path*",
+    "/trips/:path*",
+    "/profile/:path*",
+    "/mood/:path*",
+  ],
 };

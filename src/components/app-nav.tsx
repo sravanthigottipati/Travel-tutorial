@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/trips", label: "Trips" },
   { href: "/chat", label: "Chat" },
+  { href: "/mood", label: "Mood" },
 ] as const;
 
 type Props = {

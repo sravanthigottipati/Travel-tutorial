@@ -5,7 +5,7 @@ import { removeActivity, addActivity, ItineraryModificationError } from "@/lib/p
 import { recalculateTripBudget } from "@/lib/budget/recalculate-trip-budget";
 import { recommendDestinations, recommendPlaces } from "@/lib/recommendations/recommendation-engine";
 import { getPersonalizationSignal } from "@/lib/recommendations/personalization";
-import { getDestinationCenter } from "@/lib/planner/destinations";
+import { resolveDestinationCenter } from "@/lib/places/geocode";
 import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
 import { searchStays as searchStaysApi } from "@/lib/places/foursquare-client";
 
@@ -19,7 +19,7 @@ import { searchStays as searchStaysApi } from "@/lib/places/foursquare-client";
 // isn't wired up — see Phase 8) and saveTrip (trips persist immediately on
 // creation in this design; there's no separate draft/save step to call).
 
-export type ToolContext = { userId: string };
+export type ToolContext = { userId: string; hiddenGems?: boolean };
 
 // Bounds match trip-schema.ts's (the manual-form/API path) — see that
 // file's comment: an unbounded durationDays here is a real
@@ -157,9 +157,9 @@ export const tools = {
     args: tripIdArgs,
     async run(ctx: ToolContext, args: z.infer<typeof tripIdArgs>) {
       const trip = await assertOwnedTrip(ctx.userId, args.tripId);
-      const center = getDestinationCenter(trip.destination);
+      const center = await resolveDestinationCenter(trip.destination);
       if (!center) {
-        return { summary: `No curated location data for ${trip.destination} yet, so weather isn't available.` };
+        return { summary: `Couldn't find a location for ${trip.destination}, so weather isn't available.` };
       }
       const { forecast, error } = await fetchWeatherForecast(center.lat, center.lon, trip.durationDays);
       if (error) return { summary: `Couldn't fetch weather: ${error}` };
@@ -188,7 +188,7 @@ export const tools = {
     args: tripIdArgs,
     async run(ctx: ToolContext, args: z.infer<typeof tripIdArgs>) {
       await assertOwnedTrip(ctx.userId, args.tripId);
-      const result = await generateItineraryForTrip(args.tripId);
+      const result = await generateItineraryForTrip(args.tripId, { hiddenGems: ctx.hiddenGems });
       return {
         ...result,
         summary: `Generated a ${result.itineraries.length}-day itinerary. Estimated total: ${result.budget.total}.`,

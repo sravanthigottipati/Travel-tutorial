@@ -55,8 +55,10 @@ export default async function TripDashboardPage({
             <>
               <Button variant="outline" render={<Link href={`/trips/${trip.id}/itinerary`}>View itinerary</Link>} nativeButton={false} />
               <Button variant="outline" render={<Link href={`/trips/${trip.id}/budget`}>View budget</Link>} nativeButton={false} />
+              <Button variant="outline" render={<Link href={`/trips/${trip.id}/today`}>Today mode</Link>} nativeButton={false} />
             </>
           )}
+          <Button variant="outline" render={<Link href={`/trips/${trip.id}/what-if`}>What if…</Link>} nativeButton={false} />
           <Button variant="outline" render={<Link href={`/trips/${trip.id}/map`}>Map & weather</Link>} nativeButton={false} />
           <Button variant="outline" render={<Link href={chatHref}>Chat</Link>} nativeButton={false} />
           <DeleteTripButton tripId={trip.id} />
@@ -67,11 +69,22 @@ export default async function TripDashboardPage({
         <CardHeader>
           <CardTitle>Share this trip</CardTitle>
           <CardDescription>
-            Get a link anyone can open to view the itinerary, budget and map — no login required.
+            Get a link anyone can open to view the plan and vote on each activity — no login
+            required. You see the group&apos;s verdict here.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ShareTripButton tripId={trip.id} initialShareToken={trip.shareToken} />
+          <div className="flex flex-col gap-3">
+            <ShareTripButton tripId={trip.id} initialShareToken={trip.shareToken} />
+            {trip.shareToken && (
+              <Button
+                variant="outline"
+                className="self-start"
+                render={<Link href={`/trips/${trip.id}/votes`}>See group votes</Link>}
+                nativeButton={false}
+              />
+            )}
+          </div>
         </CardContent>
       </Card>
     </main>

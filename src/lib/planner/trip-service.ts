@@ -29,7 +29,10 @@ export async function createTrip(
 // tool. Runs the Section 15.1 planning pipeline, persists it, and
 // recalculates the budget to match (Phase 6) — the itinerary and budget
 // must never go out of sync with each other.
-export async function generateItineraryForTrip(tripId: string) {
+export async function generateItineraryForTrip(
+  tripId: string,
+  options: { hiddenGems?: boolean } = {}
+) {
   const trip = await prisma.trip.findUniqueOrThrow({ where: { id: tripId } });
 
   // Was hardcoded to `interests: []` — the deterministic engine never
@@ -45,6 +48,7 @@ export async function generateItineraryForTrip(tripId: string) {
     travelers: trip.travelers,
     budget: Number(trip.budget),
     interests: personalization.interests,
+    hiddenGems: options.hiddenGems,
   });
 
   await prisma.$transaction([

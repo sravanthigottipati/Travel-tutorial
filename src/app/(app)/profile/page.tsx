@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +47,19 @@ export default async function ProfilePage() {
         </CardHeader>
         <CardContent>
           <ThemeToggleLoader />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Travel personality quiz</CardTitle>
+          <CardDescription>
+            Not sure how to describe your travel style? Five quick questions fill in your
+            preferences for you.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" nativeButton={false} render={<Link href="/profile/quiz">Take the quiz</Link>} />
         </CardContent>
       </Card>
 

@@ -94,7 +94,10 @@ async function executeDecidedTool(
   }
 
   try {
-    const result = await runTool(toolName, args, { userId: input.userId });
+    const result = await runTool(toolName, args, {
+      userId: input.userId,
+      hiddenGems: input.context.hiddenGems,
+    });
     return {
       toolName,
       summary: result.summary,
@@ -190,7 +193,7 @@ export function parseRemoveActivityCommand(
 async function stubDecideAndRunTool(input: DecideInput): Promise<AgentResult> {
   const { message, intent, context, tripId, userId } = input;
   const lower = message.toLowerCase();
-  const ctx: ToolContext = { userId };
+  const ctx: ToolContext = { userId, hiddenGems: context.hiddenGems };
 
   if (intent === "create_trip" && !tripId) {
     if (context.destination && context.durationDays && context.travelers && context.budget) {

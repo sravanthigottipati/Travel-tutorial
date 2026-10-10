@@ -44,8 +44,11 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export function VoiceInputButton({
   onTranscript,
+  onStart,
   disabled,
 }: {
+  /** Called when listening begins, so the assistant can stop talking over the user. */
+  onStart?: () => void;
   /** Called with finalized text each time the user finishes a phrase. */
   onTranscript: (text: string) => void;
   disabled?: boolean;
@@ -81,6 +84,7 @@ export function VoiceInputButton({
     if (!Ctor) return;
 
     setError(null);
+    onStart?.();
     const rec = new Ctor();
     rec.lang = navigator.language || "en-US";
     rec.continuous = false;

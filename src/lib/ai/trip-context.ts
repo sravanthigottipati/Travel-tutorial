@@ -20,6 +20,7 @@ export const tripContextSchema = z.object({
   // ceiling to stop unbounded growth in the stored ChatSession.context JSON.
   interests: z.array(z.string().max(50)).max(20).default([]),
   foodPreference: z.string().optional(),
+  hiddenGems: z.boolean().optional(),
 });
 
 export type TripContext = z.infer<typeof tripContextSchema>;

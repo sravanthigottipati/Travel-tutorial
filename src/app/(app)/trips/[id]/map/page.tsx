@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
-import { getDestinationCenter } from "@/lib/planner/destinations";
+import { resolveDestinationCenter } from "@/lib/places/geocode";
 import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export default async function TripMapPage({
     notFound();
   }
 
-  const center = getDestinationCenter(trip.destination);
+  const center = await resolveDestinationCenter(trip.destination);
   const weather = center
     ? await fetchWeatherForecast(center.lat, center.lon, trip.durationDays)
     : null;
@@ -46,9 +46,8 @@ export default async function TripMapPage({
 
       {!center ? (
         <p className="text-sm text-muted-foreground">
-          Map and weather aren&apos;t available for {trip.destination} — only destinations with
-          curated location data support this yet (see Section 18 for why this isn&apos;t
-          general-purpose).
+          We couldn&apos;t find a location for &quot;{trip.destination}&quot;, so the map and weather
+          aren&apos;t available. Try editing the trip&apos;s destination to a nearby city or town.
         </p>
       ) : (
         <>
@@ -56,8 +55,7 @@ export default async function TripMapPage({
             <CardHeader>
               <CardTitle>{center.label}</CardTitle>
               <CardDescription>
-                Destination-level location only — precise per-activity pins need a real
-                places API (Section 18, not yet wired up).
+                Destination-level location only — individual activities aren&apos;t pinned.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -68,7 +66,7 @@ export default async function TripMapPage({
           <Card>
             <CardHeader>
               <CardTitle>Weather forecast</CardTitle>
-              <CardDescription>Live data from Open-Meteo — no stub here.</CardDescription>
+              <CardDescription>Live forecast from Open-Meteo.</CardDescription>
             </CardHeader>
             <CardContent>
               {weather?.error && (

@@ -9,13 +9,17 @@ import { ChatWindow } from "./chat-window";
 export default async function ChatPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sessionId?: string }>;
+  searchParams: Promise<{ sessionId?: string; prompt?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
-  const { sessionId: requestedSessionId } = await searchParams;
+  const { sessionId: requestedSessionId, prompt } = await searchParams;
+  // A prefilled prompt (from Mood Match) is a new idea, so it starts a fresh
+  // conversation instead of landing in whichever chat was open last. It only
+  // fills the input box — nothing is sent until the user presses Send.
+  const initialInput = typeof prompt === "string" ? prompt.slice(0, 300) : "";
 
   // Coming from a trip's "Chat" button (?sessionId=...) should reopen that
   // trip's own conversation, not whatever the user chatted about most
@@ -28,7 +32,9 @@ export default async function ChatPage({
           where: { id: requestedSessionId, userId: session.user.id },
           include: { messages: { orderBy: { createdAt: "asc" } } },
         })
-      : prisma.chatSession.findFirst({
+      : initialInput
+        ? Promise.resolve(null)
+        : prisma.chatSession.findFirst({
           where: { userId: session.user.id },
           orderBy: { createdAt: "desc" },
           include: { messages: { orderBy: { createdAt: "asc" } } },
@@ -66,6 +72,7 @@ export default async function ChatPage({
       initialContext={initialContext}
       initialTripId={latestSession?.tripId ?? null}
       personalizedContext={personalizedContext}
+      initialInput={initialInput}
     />
   );
 }

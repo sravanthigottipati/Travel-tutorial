@@ -92,6 +92,21 @@ const CREATOR_PROFILE_INSTRUCTION =
   "earlier in this same conversation. Every other message (trip planning, general knowledge, " +
   "anything else) must never reference the creator.";
 
+// Only added when the user switches Hidden Gems Mode on for this chat.
+const HIDDEN_GEMS_INSTRUCTION =
+  "Hidden Gems Mode is ON for this conversation. When suggesting places, activities, food spots " +
+  "or day trips, steer away from the most famous, crowded tourist spots and prefer lesser-known " +
+  "but genuinely worthwhile alternatives (quiet beaches, local neighbourhoods, small heritage " +
+  "sites, local eateries). Tag every suggested place with an honest typical crowd level — " +
+  "Quiet, Moderate or Busy — and, when relevant, the best time of day or week to avoid crowds. " +
+  "If you mention a famous landmark at all, say it is Busy and offer a quieter alternative. " +
+  "Only name sites, viewpoints, trails, neighbourhoods and markets you're confident really exist. " +
+  "Never name a specific restaurant, cafe, shop or homestay — describe the kind of place and the " +
+  "area to find it instead (e.g. \"a family-run thali place near the old market\"). If you're " +
+  "unsure about a lesser-known spot, say so rather than inventing details. Crowd levels are " +
+  "general estimates, not live data. " +
+  "The stays rules above still apply unchanged.";
+
 function buildSystemPrompt(
   context: TripContext,
   intent: Intent,
@@ -107,6 +122,7 @@ function buildSystemPrompt(
     PREFERENCE_DISCLOSURE_INSTRUCTION,
     STAYS_INSTRUCTION,
     CREATOR_PROFILE_INSTRUCTION,
+    context.hiddenGems ? HIDDEN_GEMS_INSTRUCTION : "",
     `Detected intent: ${intent}.`,
     `Known trip context so far: ${JSON.stringify(context)}.`,
     // context.foodPreference and context.interests are already seeded from

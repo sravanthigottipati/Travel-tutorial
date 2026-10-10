@@ -73,6 +73,7 @@ model Trip {
   itineraries  Itinerary[]
   expenses     Expense[]
   chatSessions ChatSession[]
+  votes        ActivityVote[]
 
   @@index([userId])
   @@map("trips")
@@ -103,10 +104,32 @@ model Activity {
   notes          String?
   sortOrder      Int      @default(0) @map("sort_order")
 
-  itinerary Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  itinerary Itinerary     @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  votes     ActivityVote[]
 
   @@index([itineraryId])
   @@map("activities")
+}
+
+// A thumbs up/down on one activity from someone using a shared trip link.
+// Voters have no account: `voterKey` is a random id their browser generated,
+// so one person gets one vote per activity (unique below) and can change it.
+model ActivityVote {
+  id         String   @id @default(cuid())
+  tripId     String   @map("trip_id")
+  activityId String   @map("activity_id")
+  voterKey   String   @map("voter_key")
+  voterName  String   @map("voter_name")
+  value      Int
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  trip     Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, voterKey])
+  @@index([tripId])
+  @@map("activity_votes")
 }
 
 enum ExpenseCategory {

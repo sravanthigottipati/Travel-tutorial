@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { getDestinationCenter } from "@/lib/planner/destinations";
+import { resolveDestinationCenter } from "@/lib/places/geocode";
 import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapLoader } from "@/components/trip-map/map-loader";
+import { tallyVotes } from "@/lib/voting/votes";
+import { VotingItinerary } from "./voting-itinerary";
 
 const CATEGORY_LABELS: Record<string, string> = {
   TRANSPORT: "Transport",
@@ -45,9 +47,14 @@ export default async function SharedTripPage({
     notFound();
   }
 
+  const votes = await prisma.activityVote.findMany({
+    where: { tripId: trip.id },
+    select: { activityId: true, value: true },
+  });
+
   const totalExpense = trip.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const statedBudget = Number(trip.budget);
-  const center = getDestinationCenter(trip.destination);
+  const center = await resolveDestinationCenter(trip.destination);
   const weather = center
     ? await fetchWeatherForecast(center.lat, center.lon, trip.durationDays)
     : null;
@@ -59,7 +66,7 @@ export default async function SharedTripPage({
           <Link href="/" className="font-display text-lg font-semibold tracking-tight">
             Travel Tutorial
           </Link>
-          <span className="text-xs text-muted-foreground">Shared trip · view only</span>
+          <span className="text-xs text-muted-foreground">Shared trip · vote on the plan</span>
         </div>
       </header>
 
@@ -79,33 +86,23 @@ export default async function SharedTripPage({
           {trip.itineraries.length === 0 ? (
             <p className="text-sm text-muted-foreground">No itinerary yet for this trip.</p>
           ) : (
-            trip.itineraries.map((day) => (
-              <Card key={day.id}>
-                <CardHeader>
-                  <CardTitle>{day.title}</CardTitle>
-                  <CardDescription>Day {day.dayNumber}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  {day.activities.map((activity) => (
-                    <div
-                      key={activity.id}
-                      className="flex flex-col rounded-md border border-border p-3 text-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{activity.name}</span>
-                        <span className="text-muted-foreground">
-                          {activity.startTime} – {activity.endTime}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-muted-foreground">
-                        <span>{activity.location}</span>
-                        <span>{activity.estimatedCost.toString()}</span>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            ))
+            <VotingItinerary
+              token={token}
+              initialTallies={tallyVotes(votes)}
+              days={trip.itineraries.map((day) => ({
+                id: day.id,
+                dayNumber: day.dayNumber,
+                title: day.title,
+                activities: day.activities.map((a) => ({
+                  id: a.id,
+                  name: a.name,
+                  location: a.location,
+                  startTime: a.startTime,
+                  endTime: a.endTime,
+                  cost: a.estimatedCost.toString(),
+                })),
+              }))}
+            />
           )}
         </div>
 

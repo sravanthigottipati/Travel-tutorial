@@ -1,4 +1,5 @@
 import { getCandidatePlaces, type CandidatePlace } from "@/lib/planner/destinations";
+import { CROWD_LABEL, crowdRank, getCrowdLevel } from "@/lib/planner/crowd-levels";
 import type { TripContext } from "@/lib/ai/trip-context";
 
 // Implements the planning pipeline from Section 15.1:
@@ -75,7 +76,12 @@ export function generateItinerary(context: TripContext): ItineraryPlan {
   const preferCheaper =
     perActivityBudgetShare !== null && perActivityBudgetShare < averageCandidateCost;
 
-  const candidates = prioritizeByInterests(allCandidates, context.interests ?? [], preferCheaper);
+  const hiddenGems = context.hiddenGems === true;
+  const prioritized = prioritizeByInterests(allCandidates, context.interests ?? [], preferCheaper);
+  // Array.sort is stable, so interest/cost ordering is preserved within each crowd tier.
+  const candidates = hiddenGems
+    ? [...prioritized].sort((a, b) => crowdRank(a.name) - crowdRank(b.name))
+    : prioritized;
 
   const days: PlannedDay[] = [];
   let candidateIndex = 0;
@@ -114,7 +120,9 @@ export function generateItinerary(context: TripContext): ItineraryPlan {
         startTime: TIME_SLOTS[slot].start,
         endTime: TIME_SLOTS[slot].end,
         estimatedCost: cost,
-        notes: null,
+        notes: hiddenGems
+          ? `Typical crowd: ${CROWD_LABEL[getCrowdLevel(candidate.name)]} (estimate)`
+          : null,
       });
     }
 
