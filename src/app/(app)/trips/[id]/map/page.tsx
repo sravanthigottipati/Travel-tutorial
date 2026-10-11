@@ -33,7 +33,7 @@ export default async function TripMapPage({
     : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{trip.destination} — map & weather</h1>
         <Button
@@ -50,7 +50,7 @@ export default async function TripMapPage({
           aren&apos;t available. Try editing the trip&apos;s destination to a nearby city or town.
         </p>
       ) : (
-        <>
+        <div className="grid items-start gap-6 lg:grid-cols-[2fr_1fr]">
           <Card>
             <CardHeader>
               <CardTitle>{center.label}</CardTitle>
@@ -87,7 +87,7 @@ export default async function TripMapPage({
               )}
             </CardContent>
           </Card>
-        </>
+        </div>
       )}
     </main>
   );

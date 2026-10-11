@@ -40,7 +40,8 @@ export default async function TripDashboardPage({
   const chatHref = trip.chatSessions[0] ? `/chat?sessionId=${trip.chatSessions[0].id}` : "/chat";
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+      <div className="grid items-start gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>{trip.destination}</CardTitle>
@@ -87,6 +88,7 @@ export default async function TripDashboardPage({
           </div>
         </CardContent>
       </Card>
+      </div>
     </main>
   );
 }

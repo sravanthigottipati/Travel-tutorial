@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   const otherTrips = trips.slice(1, 4);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Welcome back{user?.name ? `, ${user.name}` : ""}</h1>
         <p className="text-sm text-muted-foreground">Here&apos;s where your trips stand.</p>
@@ -79,6 +79,7 @@ export default async function DashboardPage() {
         </Card>
       ) : (
         <>
+          <div className="grid items-start gap-6 lg:grid-cols-2">
           {latestTrip && (
             <div className="flex flex-col gap-2">
               <h2 className="text-sm font-medium text-muted-foreground">Most recent trip</h2>
@@ -141,6 +142,7 @@ export default async function DashboardPage() {
               )}
             </div>
           )}
+          </div>
 
           <p className="text-sm text-muted-foreground">
             Total stated budget across all trips: {totalStatedBudget}

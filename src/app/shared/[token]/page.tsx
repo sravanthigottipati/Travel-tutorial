@@ -62,7 +62,7 @@ export default async function SharedTripPage({
   return (
     <>
       <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-6 py-3">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-3">
           <Link href="/" className="font-display text-lg font-semibold tracking-tight">
             Travel Tutorial
           </Link>
@@ -70,7 +70,7 @@ export default async function SharedTripPage({
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
         <Card>
           <CardHeader>
             <CardTitle>{trip.destination}</CardTitle>

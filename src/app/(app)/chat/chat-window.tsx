@@ -374,7 +374,7 @@ export function ChatWindow({
 
   return (
     <div className="flex flex-1">
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-6">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-sm font-medium text-muted-foreground">Chat</h1>
           <div className="flex items-center gap-2">

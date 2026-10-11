@@ -123,6 +123,7 @@ export function VotingItinerary({
         )}
       </div>
 
+      <div className="grid items-start gap-3 md:grid-cols-2 lg:grid-cols-3">
       {days.map((day) => (
         <Card key={day.id}>
           <CardHeader>
@@ -178,6 +179,7 @@ export function VotingItinerary({
           </CardContent>
         </Card>
       ))}
+      </div>
     </div>
   );
 }

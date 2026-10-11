@@ -29,7 +29,7 @@ export default async function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 p-6">
+    <main className="mx-auto grid w-full max-w-4xl flex-1 content-start items-start gap-6 p-6 md:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>{user.name}</CardTitle>

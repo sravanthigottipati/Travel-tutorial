@@ -14,7 +14,7 @@ export default async function QuizPage() {
   });
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Travel personality quiz</h1>
         <p className="text-sm text-muted-foreground">

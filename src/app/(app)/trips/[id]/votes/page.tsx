@@ -43,7 +43,7 @@ export default async function VotesPage({ params }: { params: Promise<{ id: stri
   for (const v of trip.votes) voterNames.set(v.voterKey, v.voterName);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-xl font-semibold">Group votes — {trip.destination}</h1>
@@ -77,6 +77,7 @@ export default async function VotesPage({ params }: { params: Promise<{ id: stri
         </Card>
       )}
 
+      <div className="grid items-start gap-4 lg:grid-cols-2">
       {trip.itineraries.map((day) => (
         <Card key={day.id}>
           <CardHeader>
@@ -102,6 +103,7 @@ export default async function VotesPage({ params }: { params: Promise<{ id: stri
           </CardContent>
         </Card>
       ))}
+      </div>
     </main>
   );
 }

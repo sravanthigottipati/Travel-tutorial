@@ -30,7 +30,7 @@ export default async function TripsPage() {
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       <h1 className="text-xl font-semibold">Your trips</h1>
 
       {personalization.interests.length > 0 && recommended.length > 0 && (
@@ -55,7 +55,7 @@ export default async function TripsPage() {
       {trips.length === 0 ? (
         <p className="text-sm text-muted-foreground">No trips yet — create one below.</p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {trips.map((trip) => (
             <Link key={trip.id} href={`/trips/${trip.id}`}>
               <Card className="transition-colors hover:bg-muted">
@@ -72,7 +72,9 @@ export default async function TripsPage() {
         </div>
       )}
 
-      <NewTripForm />
+      <div className="max-w-xl">
+        <NewTripForm />
+      </div>
       <p className="text-sm text-muted-foreground">
         Prefer to describe your trip instead?{" "}
         <Link href="/chat" className="text-primary underline-offset-4 hover:underline">

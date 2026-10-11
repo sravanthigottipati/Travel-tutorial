@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -18,10 +18,14 @@ export function ShareTripButton({ tripId, initialShareToken }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const shareUrl =
-    shareToken && typeof window !== "undefined"
-      ? `${window.location.origin}/shared/${shareToken}`
-      : null;
+  // Empty on the server and during hydration, then the real origin — a plain
+  // `typeof window` check here made server and client HTML differ.
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => ""
+  );
+  const shareUrl = shareToken && origin ? `${origin}/shared/${shareToken}` : null;
 
   async function handleEnable() {
     setIsLoading(true);

@@ -84,6 +84,7 @@ export function MoodForm() {
       {result && (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">{result.vibe}</p>
+          <div className="grid items-start gap-3 md:grid-cols-2">
           {result.destinations.map((d) => (
             <Card key={d.name}>
               <CardHeader>
@@ -104,6 +105,7 @@ export function MoodForm() {
               </CardContent>
             </Card>
           ))}
+          </div>
         </div>
       )}
     </div>

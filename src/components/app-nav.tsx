@@ -20,7 +20,7 @@ export function AppNav({ user }: Props) {
 
   return (
     <header className="border-b border-border">
-      <nav className="mx-auto flex w-full max-w-4xl items-center justify-between gap-4 px-6 py-3">
+      <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-3">
         <Link href="/dashboard" className="font-display text-lg font-semibold tracking-tight">
           Travel Tutorial
         </Link>

@@ -36,8 +36,10 @@ export default async function TripItineraryPage({
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
+    // <main> is the grid itself (no wrapper div around the day cards): the E2E
+    // test locates "the first div containing Day 2", which a wrapper would match.
+    <main className="mx-auto grid w-full max-w-6xl items-start gap-4 p-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="col-span-full mb-2 flex items-center justify-between">
         <h1 className="text-xl font-semibold">{trip.destination} itinerary</h1>
         <Button
           variant="outline"
@@ -48,12 +50,12 @@ export default async function TripItineraryPage({
       </div>
 
       {trip.itineraries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="col-span-full text-sm text-muted-foreground">
           No itinerary yet — generate one from the trip page.
         </p>
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">
+          <p className="col-span-full text-sm text-muted-foreground">
             Estimated activity cost: {totalCost} (excludes transport, accommodation and food).
           </p>
           {trip.itineraries.map((day) => (
