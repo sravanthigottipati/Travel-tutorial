@@ -76,7 +76,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const nothingToApply =
     (scenario.type === "rain" && result.rainSwaps.length === 0) ||
-    (scenario.type === "days" && result.after.durationDays === trip.durationDays);
+    (scenario.type === "days" && result.after.durationDays === trip.durationDays) ||
+    (scenario.type === "setBudget" && result.after.budget === result.before.budget);
   if (nothingToApply) {
     return NextResponse.json({ error: result.note ?? "Nothing to apply." }, { status: 400 });
   }
@@ -100,7 +101,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await prisma.trip.update({
       where: { id: trip.id },
       data:
-        scenario.type === "budget"
+        scenario.type === "budget" || scenario.type === "setBudget"
           ? { budget: result.after.budget }
           : { durationDays: result.after.durationDays },
     });

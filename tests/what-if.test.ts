@@ -32,6 +32,22 @@ describe("simulateScenario", () => {
     expect(result.after.total).toBeLessThanOrEqual(result.before.total);
   });
 
+  it("setBudget uses the exact amount typed, up or down", () => {
+    const trip = snapshotFor(3, 40000);
+    const lower = simulateScenario(trip, { type: "setBudget", amount: 18500 }, []);
+    expect(lower.after.budget).toBe(18500);
+    expect(lower.before.budget).toBe(40000);
+    const higher = simulateScenario(trip, { type: "setBudget", amount: 90000 }, []);
+    expect(higher.after.budget).toBe(90000);
+  });
+
+  it("setBudget to the current budget changes nothing and says so", () => {
+    const trip = snapshotFor(3, 40000);
+    const result = simulateScenario(trip, { type: "setBudget", amount: 40000 }, []);
+    expect(result.note).toMatch(/already your budget/);
+    expect(result.dayDiffs).toEqual([]);
+  });
+
   it("adding a day adds a day and cost; removing one at 1 day is refused", () => {
     const trip = snapshotFor(3, 60000);
     const more = simulateScenario(trip, { type: "days", delta: 1 }, []);
@@ -91,5 +107,10 @@ describe("scenarioSchema", () => {
     expect(scenarioSchema.safeParse({ type: "rain", dayNumber: 0 }).success).toBe(false);
     expect(scenarioSchema.safeParse({ type: "drop-table" }).success).toBe(false);
     expect(scenarioSchema.safeParse({ type: "budget", percent: -20 }).success).toBe(true);
+    expect(scenarioSchema.safeParse({ type: "setBudget", amount: 25000 }).success).toBe(true);
+    expect(scenarioSchema.safeParse({ type: "setBudget", amount: 0 }).success).toBe(false);
+    expect(scenarioSchema.safeParse({ type: "setBudget", amount: -5 }).success).toBe(false);
+    expect(scenarioSchema.safeParse({ type: "setBudget", amount: 12.5 }).success).toBe(false);
+    expect(scenarioSchema.safeParse({ type: "setBudget", amount: 1e9 }).success).toBe(false);
   });
 });

@@ -40,6 +40,7 @@ export default async function WhatIfPage({ params }: { params: Promise<{ id: str
         tripId={trip.id}
         dayNumbers={trip.itineraries.map((d) => d.dayNumber)}
         durationDays={trip.durationDays}
+        budget={Number(trip.budget)}
       />
     </main>
   );

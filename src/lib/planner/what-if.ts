@@ -5,6 +5,8 @@ import { buildBudgetSummary } from "@/lib/budget/budget-engine";
 
 export const scenarioSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("budget"), percent: z.number().int().min(-50).max(50) }),
+  // An exact new budget, in the trip's own currency (same ceiling as trip-schema.ts).
+  z.object({ type: z.literal("setBudget"), amount: z.number().int().min(1).max(100_000_000) }),
   z.object({ type: z.literal("days"), delta: z.union([z.literal(-1), z.literal(1)]) }),
   z.object({ type: z.literal("rain"), dayNumber: z.number().int().min(1).max(60) }),
 ]);
@@ -147,8 +149,15 @@ export function planRainSwaps(trip: TripSnapshot, dayNumber: number): RainSwap[]
 export function simulateScenario(trip: TripSnapshot, scenario: Scenario, interests: string[]): WhatIfResult {
   const before = outcomeFromSnapshot(trip);
 
-  if (scenario.type === "budget") {
-    const newBudget = Math.max(1, Math.round(trip.budget * (1 + scenario.percent / 100)));
+  if (scenario.type === "setBudget" && scenario.amount === Math.round(trip.budget)) {
+    return { before, after: before, dayDiffs: [], note: "That's already your budget.", rainSwaps: [] };
+  }
+
+  if (scenario.type === "budget" || scenario.type === "setBudget") {
+    const newBudget =
+      scenario.type === "setBudget"
+        ? scenario.amount
+        : Math.max(1, Math.round(trip.budget * (1 + scenario.percent / 100)));
     const after = outcomeFromPlan(trip, trip.durationDays, newBudget, interests);
     return { before, after, dayDiffs: diffDays(before, after), note: null, rainSwaps: [] };
   }

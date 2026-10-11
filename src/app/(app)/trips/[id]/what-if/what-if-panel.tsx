@@ -3,15 +3,29 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Scenario, WhatIfResult } from "@/lib/planner/what-if";
 
-type Props = { tripId: string; dayNumbers: number[]; durationDays: number };
+type Props = { tripId: string; dayNumbers: number[]; durationDays: number; budget: number };
 
 const format = (n: number) => n.toLocaleString("en-IN");
 
-export function WhatIfPanel({ tripId, dayNumbers, durationDays }: Props) {
+// Whether the estimated total fits the budget — the answer a budget change is really asked for.
+function Fit({ outcome }: { outcome: WhatIfResult["after"] }) {
+  const gap = outcome.budget - outcome.total;
+  return gap >= 0 ? (
+    <p className="text-xs text-green-600">Within budget — {format(gap)} to spare</p>
+  ) : (
+    <p className="text-xs text-destructive">Over budget by {format(-gap)}</p>
+  );
+}
+
+export function WhatIfPanel({ tripId, dayNumbers, durationDays, budget }: Props) {
   const router = useRouter();
+  const [budgetDraft, setBudgetDraft] = useState(String(Math.round(budget)));
+  const newBudget = Number(budgetDraft);
+  const budgetValid = budgetDraft.trim() !== "" && Number.isInteger(newBudget) && newBudget >= 1 && newBudget <= 100_000_000;
   const [rainDay, setRainDay] = useState(dayNumbers[0] ?? 1);
   const [active, setActive] = useState<Scenario | null>(null);
   const [result, setResult] = useState<WhatIfResult | null>(null);
@@ -69,7 +83,12 @@ export function WhatIfPanel({ tripId, dayNumbers, durationDays }: Props) {
     }
   }
 
-  const hasChange = result && (result.dayDiffs.length > 0 || result.after.total !== result.before.total);
+  const hasChange =
+    result &&
+    (result.dayDiffs.length > 0 ||
+      result.after.total !== result.before.total ||
+      result.after.budget !== result.before.budget ||
+      result.after.durationDays !== result.before.durationDays);
 
   return (
     <div className="flex flex-col gap-4">
@@ -98,6 +117,37 @@ export function WhatIfPanel({ tripId, dayNumbers, durationDays }: Props) {
               Remove a day
             </Button>
           </div>
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (budgetValid) run({ type: "setBudget", amount: newBudget });
+            }}
+          >
+            <label htmlFor="new-budget" className="text-sm text-muted-foreground">
+              Change budget to
+            </label>
+            <Input
+              id="new-budget"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={100_000_000}
+              step={1}
+              value={budgetDraft}
+              onChange={(e) => setBudgetDraft(e.target.value)}
+              className="w-36"
+            />
+            {budgetValid && newBudget !== budget && (
+              <span className={newBudget > budget ? "text-xs text-green-600" : "text-xs text-destructive"}>
+                {newBudget > budget ? "+" : "−"}
+                {format(Math.abs(newBudget - budget))} from {format(budget)}
+              </span>
+            )}
+            <Button type="submit" variant="outline" size="sm" disabled={!budgetValid}>
+              Show me
+            </Button>
+          </form>
           {dayNumbers.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">It rains on day</span>
@@ -140,6 +190,7 @@ export function WhatIfPanel({ tripId, dayNumbers, durationDays }: Props) {
                 <p className="text-xs text-muted-foreground">Now</p>
                 <p className="font-medium">{result.before.durationDays} days · budget {format(result.before.budget)}</p>
                 <p>Estimated total {format(result.before.total)}</p>
+                <Fit outcome={result.before} />
               </div>
               <div className="rounded-lg border border-primary p-3">
                 <p className="text-xs text-muted-foreground">With this change</p>
@@ -151,6 +202,7 @@ export function WhatIfPanel({ tripId, dayNumbers, durationDays }: Props) {
                     {format(Math.abs(result.after.total - result.before.total))})
                   </span>
                 </p>
+                <Fit outcome={result.after} />
               </div>
             </div>
 
@@ -169,7 +221,13 @@ export function WhatIfPanel({ tripId, dayNumbers, durationDays }: Props) {
                 ))}
               </div>
             ) : (
-              !result.note && <p className="text-sm text-muted-foreground">No activities would change.</p>
+              !result.note && (
+                <p className="text-sm text-muted-foreground">
+                  {result.after.total !== result.before.total
+                    ? "The activities stay the same. The estimate changes because the budget sets the stay, food and transport tier."
+                    : "No activities would change."}
+                </p>
+              )
             )}
 
             {hasChange && !applied && (
