@@ -13,6 +13,9 @@ import {
   parseTodayCommand,
   timeToMinutes,
 } from "@/lib/planner/today";
+import { summarizeProgress, type ActivityStatusValue, type Progress } from "@/lib/planner/trip-tracking";
+import { SpendingCard, type SpendEntryView } from "./spending-card";
+import { LiveLocationCard } from "./live-location-card";
 
 type Activity = {
   id: string;
@@ -20,8 +23,32 @@ type Activity = {
   location: string | null;
   startTime: string | null;
   endTime: string | null;
+  status: ActivityStatusValue;
 };
 type Day = { dayNumber: number; title: string; activities: Activity[] };
+
+function ProgressBar({ label, progress }: { label: string; progress: Progress }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{label}</span>
+        <span>
+          {progress.done} done{progress.skipped > 0 ? ` · ${progress.skipped} skipped` : ""} · {progress.planned} to go
+        </span>
+      </div>
+      <div
+        className="h-2 w-full overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-label={label}
+        aria-valuenow={progress.percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-600" style={{ width: `${progress.percent}%` }} />
+      </div>
+    </div>
+  );
+}
 
 function localTodayISO(): string {
   const d = new Date();
@@ -33,11 +60,19 @@ export function TodayView({
   startISO: initialStartISO,
   durationDays,
   days: initialDays,
+  budget,
+  spendEntries,
+  destination,
+  destinationName,
 }: {
   tripId: string;
   startISO: string | null;
   durationDays: number;
   days: Day[];
+  budget: number;
+  spendEntries: SpendEntryView[];
+  destination: { lat: number; lon: number; label: string } | null;
+  destinationName: string;
 }) {
   const speech = useSpeech();
   const [startISO, setStartISO] = useState(initialStartISO);
@@ -63,7 +98,34 @@ export function TodayView({
   const isLiveDay = status.kind === "day";
   const dayNumber = status.kind === "day" ? status.dayNumber : pickedDay;
   const day = days.find((d) => d.dayNumber === dayNumber) ?? days[0];
-  const { current, next } = isLiveDay && now ? findCurrentAndNext(day.activities, now.minutes) : { current: null, next: null };
+  // Activities already ticked off are no longer "now" or "next".
+  const stillPlanned = day.activities.filter((a) => a.status === "PLANNED");
+  const { current, next } = isLiveDay && now ? findCurrentAndNext(stillPlanned, now.minutes) : { current: null, next: null };
+  const dayProgress = summarizeProgress(day.activities);
+  const tripProgress = summarizeProgress(days.flatMap((d) => d.activities));
+  const nextPlanned = next ?? stillPlanned[0] ?? null;
+
+  async function setStatus(activity: Activity, wanted: ActivityStatusValue) {
+    // Pressing the same button again puts it back to planned.
+    const status: ActivityStatusValue = activity.status === wanted ? "PLANNED" : wanted;
+    const apply = (value: ActivityStatusValue) =>
+      setDays((prev) =>
+        prev.map((d) => ({
+          ...d,
+          activities: d.activities.map((a) => (a.id === activity.id ? { ...a, status: value } : a)),
+        }))
+      );
+    apply(status);
+    const res = await fetch(`/api/trips/${tripId}/activities/${activity.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      apply(activity.status);
+      setMessage("Couldn't update that activity. Check your connection.");
+    }
+  }
 
   function say(text: string) {
     setMessage(text);
@@ -95,9 +157,10 @@ export function TodayView({
         say(data.error ?? "Couldn't update your plan.");
         return;
       }
-      const updated: Activity[] = day.activities.map(
-        (a) => data.activities.find((u: Activity) => u.id === a.id) ?? a
-      );
+      const updated: Activity[] = day.activities.map((a) => {
+        const u = data.activities.find((x: Activity) => x.id === a.id);
+        return u ? { ...a, startTime: u.startTime, endTime: u.endTime } : a;
+      });
       setDays((prev) => prev.map((d) => (d.dayNumber === day.dayNumber ? { ...d, activities: updated } : d)));
       const label = minutes % 60 === 0 ? `${minutes / 60} hour${minutes === 60 ? "" : "s"}` : `${minutes} minutes`;
       say(
@@ -184,24 +247,55 @@ export function TodayView({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
+          <div className="mb-2 flex flex-col gap-2">
+            <ProgressBar label={`Day ${day.dayNumber}`} progress={dayProgress} />
+            <ProgressBar label="Whole trip" progress={tripProgress} />
+          </div>
           {day.activities.map((a) => (
             <div
               key={a.id}
               className={cn(
-                "flex items-center justify-between rounded-md border p-3 text-sm",
-                current?.id === a.id ? "border-primary bg-primary/10" : next?.id === a.id ? "border-primary/50" : "border-border"
+                "flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm",
+                current?.id === a.id ? "border-primary bg-primary/10" : next?.id === a.id ? "border-primary/50" : "border-border",
+                a.status !== "PLANNED" && "opacity-60"
               )}
             >
-              <div className="flex flex-col">
-                <span className="font-medium">{a.name}</span>
+              <div className="flex min-w-0 flex-col">
+                <span className={cn("font-medium", a.status === "DONE" && "line-through")}>
+                  {a.status === "DONE" && <span className="mr-1 text-green-600">✓</span>}
+                  {a.name}
+                  {a.status === "SKIPPED" && <span className="ml-1 text-xs font-normal text-muted-foreground">(skipped)</span>}
+                </span>
                 {a.location && <span className="text-muted-foreground">{a.location}</span>}
               </div>
-              <div className="flex flex-col items-end">
-                <span className="text-muted-foreground">
-                  {a.startTime} – {a.endTime}
-                </span>
-                {current?.id === a.id && <span className="text-xs font-medium text-primary">Now</span>}
-                {next?.id === a.id && <span className="text-xs font-medium text-primary">Next</span>}
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-end">
+                  <span className="text-muted-foreground">
+                    {a.startTime} – {a.endTime}
+                  </span>
+                  {current?.id === a.id && <span className="text-xs font-medium text-primary">Now</span>}
+                  {next?.id === a.id && <span className="text-xs font-medium text-primary">Next</span>}
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant={a.status === "DONE" ? "default" : "outline"}
+                    aria-pressed={a.status === "DONE"}
+                    aria-label={`Mark ${a.name} done`}
+                    onClick={() => setStatus(a, "DONE")}
+                  >
+                    Done
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={a.status === "SKIPPED" ? "default" : "outline"}
+                    aria-pressed={a.status === "SKIPPED"}
+                    aria-label={`Skip ${a.name}`}
+                    onClick={() => setStatus(a, "SKIPPED")}
+                  >
+                    Skip
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
@@ -236,6 +330,13 @@ export function TodayView({
           )}
         </CardContent>
       </Card>
+
+      <SpendingCard tripId={tripId} budget={budget} initialEntries={spendEntries} />
+
+      <LiveLocationCard
+        destination={destination}
+        nextPlace={nextPlanned ? `${nextPlanned.name}, ${destinationName}` : null}
+      />
     </div>
   );
 }

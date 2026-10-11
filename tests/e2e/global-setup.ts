@@ -26,16 +26,6 @@ const DB_PATH = path.join(ROOT, "prisma", DB_FILE);
 export const E2E_PORT = 3100;
 export const E2E_BASE_URL = `http://localhost:${E2E_PORT}`;
 
-function replaceOnce(content: string, search: string, replace: string, label: string): string {
-  if (!content.includes(search)) {
-    throw new Error(
-      `E2E global-setup: expected to find ${label} in schema.prisma but didn't — ` +
-        `the schema has likely changed shape since this script was written. Update the replacement.`
-    );
-  }
-  return content.replace(search, replace);
-}
-
 export default async function globalSetup() {
   fs.mkdirSync(STATE_DIR, { recursive: true });
 
@@ -45,7 +35,7 @@ export default async function globalSetup() {
   }
 
   let schema = fs.readFileSync(SCHEMA_PATH, "utf-8");
-  // Regex rather than replaceOnce's exact string match: the alignment
+  // Regex rather than an exact string match: the alignment
   // whitespace around `=` shifts whenever a datasource field is added or
   // removed (e.g. directUrl), which isn't a meaningful schema-shape change
   // this script needs to care about.
@@ -59,20 +49,19 @@ export default async function globalSetup() {
   // errors if the env var it references isn't set at all — point it at
   // the same throwaway database rather than trying to strip the line.
   const directUrlEnv = process.env.DIRECT_URL ?? `file:./${DB_FILE}`;
-  schema = replaceOnce(
-    schema,
-    "interests     String[] @default([])",
-    'interests     Json     @default("[]")',
-    "UserPreferences.interests"
-  );
-  schema = replaceOnce(schema, "Decimal    @db.Decimal(12, 2)", "Float", "Trip.budget's Decimal type");
-  schema = replaceOnce(
-    schema,
-    "Decimal  @default(0) @db.Decimal(12, 2)",
-    "Float    @default(0)",
-    "Activity.estimatedCost's Decimal type"
-  );
-  schema = replaceOnce(schema, "Decimal         @db.Decimal(12, 2)", "Float", "Expense.amount's Decimal type");
+  // Patterns rather than exact strings: `prisma format` realigns columns
+  // whenever a field is added, and every money column (current and future)
+  // needs the same Decimal -> Float swap, so neither should break this script.
+  const interestsLine = /(interests\s+)String\[\](\s+)@default\(\[\]\)/;
+  if (!interestsLine.test(schema)) {
+    throw new Error("E2E global-setup: expected to find UserPreferences.interests (String[]) in schema.prisma.");
+  }
+  schema = schema.replace(interestsLine, '$1Json$2@default("[]")');
+  const decimalField = /\bDecimal(\s+[^\n]*?)\s*@db\.Decimal\(\d+,\s*\d+\)/g;
+  if (!decimalField.test(schema)) {
+    throw new Error("E2E global-setup: expected Decimal money columns in schema.prisma.");
+  }
+  schema = schema.replace(decimalField, "Float$1");
   fs.writeFileSync(SCHEMA_PATH, schema);
 
   if (fs.existsSync(DB_PATH)) fs.rmSync(DB_PATH);

@@ -28,10 +28,10 @@ const securityHeaders = [
   // Don't leak the full referring URL (which can include trip/session
   // identifiers in the path) to third-party origins linked from the app.
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  // Camera/geolocation are never used. The microphone is allowed for this
-  // origin only (voice input); `microphone=()` blocked it everywhere, so the
-  // browser refused access before ever asking the user.
-  { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
+  // Camera is never used. Microphone (voice input) and geolocation (Today
+  // mode's "Show my location") are allowed for this origin only — `=()`
+  // would make the browser refuse before ever asking the user.
+  { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(self)" },
 ];
 
 const nextConfig: NextConfig = {

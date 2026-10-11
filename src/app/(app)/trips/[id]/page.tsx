@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { GenerateItineraryButton } from "./generate-itinerary-button";
 import { DeleteTripButton } from "./delete-trip-button";
 import { ShareTripButton } from "./share-trip-button";
+import { DownloadTripPdfButton } from "./download-trip-pdf-button";
 
 export default async function TripDashboardPage({
   params,
@@ -62,6 +63,7 @@ export default async function TripDashboardPage({
           <Button variant="outline" render={<Link href={`/trips/${trip.id}/what-if`}>What if…</Link>} nativeButton={false} />
           <Button variant="outline" render={<Link href={`/trips/${trip.id}/map`}>Map & weather</Link>} nativeButton={false} />
           <Button variant="outline" render={<Link href={chatHref}>Chat</Link>} nativeButton={false} />
+          <DownloadTripPdfButton tripId={trip.id} />
           <DeleteTripButton tripId={trip.id} />
         </CardContent>
       </Card>

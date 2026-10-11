@@ -24,6 +24,10 @@ test("GET /api/health reports a reachable database", async ({ request }) => {
 test("full journey: register -> chat creates a trip -> itinerary -> budget -> conversational edit -> reload persists", async ({
   page,
 }) => {
+  // This walks through ~6 pages against `next dev`, which compiles each route
+  // on first visit; on slower machines that alone can pass the 60s default.
+  test.setTimeout(180_000);
+
   // --- Register ---
   await page.goto("/register");
   await page.getByLabel("Name").fill("E2E Test User");
@@ -31,7 +35,7 @@ test("full journey: register -> chat creates a trip -> itinerary -> budget -> co
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Create account" }).click();
 
-  await expect(page).toHaveURL(/\/chat$/, { timeout: 15_000 });
+  await expect(page).toHaveURL(/\/chat$/, { timeout: 45_000 });
 
   // --- Describe a trip in chat; the agent should auto-create it ---
   const chatInput = page.getByPlaceholder(/Plan a 4-day Goa trip/);

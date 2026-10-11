@@ -8,7 +8,7 @@ import "leaflet/dist/leaflet.css";
 // Next.js's asset pipeline breaks Leaflet's default marker icon URLs;
 // point them at the CDN copy that ships alongside the installed version
 // instead of the default relative paths.
-function useLeafletDefaultIconFix() {
+export function useLeafletDefaultIconFix() {
   useEffect(() => {
     delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
     L.Icon.Default.mergeOptions({

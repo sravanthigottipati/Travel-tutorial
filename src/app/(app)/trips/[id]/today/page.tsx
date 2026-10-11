@@ -3,7 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { Button } from "@/components/ui/button";
+import { resolveDestinationCenter } from "@/lib/places/geocode";
+import type { SpendCategory } from "@/lib/planner/trip-tracking";
 import { TodayView } from "./today-view";
+import { DownloadTripPdfButton } from "../download-trip-pdf-button";
 
 export default async function TodayPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -19,11 +22,13 @@ export default async function TodayPage({ params }: { params: Promise<{ id: stri
         orderBy: { dayNumber: "asc" },
         include: { activities: { orderBy: { sortOrder: "asc" } } },
       },
+      spendEntries: { orderBy: { spentAt: "desc" } },
     },
   });
   if (!trip) {
     notFound();
   }
+  const center = await resolveDestinationCenter(trip.destination);
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
@@ -34,12 +39,15 @@ export default async function TodayPage({ params }: { params: Promise<{ id: stri
             Your plan for the day. Running behind? Say or tap how late — the rest of the day shifts.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          nativeButton={false}
-          render={<Link href={`/trips/${trip.id}`}>Back to trip</Link>}
-        />
+        <div className="flex shrink-0 gap-2">
+          <DownloadTripPdfButton tripId={trip.id} size="sm" />
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            render={<Link href={`/trips/${trip.id}`}>Back to trip</Link>}
+          />
+        </div>
       </div>
 
       {trip.itineraries.length === 0 ? (
@@ -60,8 +68,19 @@ export default async function TodayPage({ params }: { params: Promise<{ id: stri
               location: a.location,
               startTime: a.startTime,
               endTime: a.endTime,
+              status: a.status,
             })),
           }))}
+          budget={Number(trip.budget)}
+          spendEntries={trip.spendEntries.map((e) => ({
+            id: e.id,
+            amount: Number(e.amount),
+            category: e.category as SpendCategory,
+            note: e.note,
+            spentAt: e.spentAt.toISOString(),
+          }))}
+          destination={center}
+          destinationName={trip.destination}
         />
       )}
     </main>
