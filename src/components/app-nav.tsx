@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "cn";
+import { BrandLogo } from "@/components/brand-logo";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -21,9 +22,7 @@ export function AppNav({ user }: Props) {
   return (
     <header className="border-b border-border">
       <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-3">
-        <Link href="/dashboard" className="font-display text-lg font-semibold tracking-tight">
-          Travel Tutorial
-        </Link>
+        <BrandLogo href="/dashboard" />
         <div className="flex flex-1 items-center justify-center gap-1">
           {LINKS.map((link) => {
             // /trips also covers /trips/[id]/... sub-pages, but /dashboard
@@ -49,7 +48,7 @@ export function AppNav({ user }: Props) {
         <Link
           href="/profile"
           className={cn(
-            "flex items-center gap-2 rounded-full py-1 pr-3 pl-1 text-sm transition-colors",
+            "flex items-center gap-2 rounded-full py-1 pl-1 text-sm transition-colors md:pr-3",
             pathname === "/profile" || pathname.startsWith("/profile/")
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -58,7 +57,7 @@ export function AppNav({ user }: Props) {
           <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
             {(user.name || user.email || "?").trim().charAt(0).toUpperCase()}
           </span>
-          <span className="max-w-40 truncate">{user.email}</span>
+          <span className="hidden max-w-40 truncate md:inline">{user.email}</span>
         </Link>
       </nav>
     </header>

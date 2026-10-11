@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { resolveDestinationCenter } from "@/lib/places/geocode";
@@ -6,6 +5,7 @@ import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapLoader } from "@/components/trip-map/map-loader";
 import { tallyVotes } from "@/lib/voting/votes";
+import { BrandLogo } from "@/components/brand-logo";
 import { VotingItinerary } from "./voting-itinerary";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -63,9 +63,7 @@ export default async function SharedTripPage({
     <>
       <header className="border-b border-border">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-3">
-          <Link href="/" className="font-display text-lg font-semibold tracking-tight">
-            Travel Tutorial
-          </Link>
+          <BrandLogo href="/" />
           <span className="text-xs text-muted-foreground">Shared trip · vote on the plan</span>
         </div>
       </header>
