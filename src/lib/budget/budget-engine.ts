@@ -1,4 +1,4 @@
-import { BUDGET_TIERS, MISCELLANEOUS_RATE, TRAVELERS_PER_ROOM, selectBudgetTier, type BudgetTierKey } from "@/lib/budget/rates";
+import { BUDGET_TIERS, MISCELLANEOUS_RATE, TRAVELERS_PER_ROOM, type BudgetTierKey } from "@/lib/budget/rates";
 import { getDestinationCostIndex } from "@/lib/planner/destinations";
 import { ExpenseCategory } from "@/generated/prisma/client";
 
@@ -19,22 +19,22 @@ export type BudgetSummary = {
 // AI-generated text (Table 12, "Budget rule").
 //
 // Two adjustments keep this from just being a flat guess: the pricing tier
-// (budget/mid-range/luxury) is chosen from what the traveler said they want
-// to spend per person per day, and every rate is scaled by the destination's
-// relative cost of travel — a night in Paris isn't priced like a night in
-// Jaipur.
-export function estimateNonActivityCosts(
-  durationDays: number,
-  travelers: number,
-  destination: string,
-  statedBudget: number | null
-): Omit<BudgetBreakdown, "ACTIVITIES"> & { tier: BudgetTierKey; destinationCostIndex: number } {
+// (budget/mid-range/luxury) is the most comfortable one the stated budget can
+// actually cover, and every rate is scaled by the destination's relative cost
+// of travel — a night in Paris isn't priced like a night in Jaipur.
+//
+// The tier used to come from a per-person-per-day threshold, which had a cliff:
+// raising ₹15,000 to ₹18,000 for 2 people/4 days crossed into mid-range prices
+// (~₹23,000) and turned a plan that fit into one that was over budget.
+// Choosing the best tier that fits makes more money only ever buy more comfort.
+const TIERS_MOST_COMFORTABLE_FIRST: BudgetTierKey[] = ["luxury", "midRange", "budget"];
+
+type NonActivityCosts = Omit<BudgetBreakdown, "ACTIVITIES">;
+
+function costsAtTier(tier: BudgetTierKey, durationDays: number, travelers: number, costIndex: number): NonActivityCosts {
   const nights = Math.max(durationDays - 1, 0);
   const rooms = Math.ceil(travelers / TRAVELERS_PER_ROOM);
-
-  const tier = selectBudgetTier(statedBudget, durationDays, travelers);
   const rates = BUDGET_TIERS[tier];
-  const costIndex = getDestinationCostIndex(destination);
 
   const accommodation = Math.round(nights * rooms * rates.accommodationPerRoomPerNight * costIndex);
   const food = Math.round(travelers * durationDays * rates.foodPerPersonPerDay * costIndex);
@@ -50,9 +50,32 @@ export function estimateNonActivityCosts(
     [ExpenseCategory.FOOD]: food,
     [ExpenseCategory.LOCAL_TRANSPORT]: localTransport,
     [ExpenseCategory.MISCELLANEOUS]: miscellaneous,
-    tier,
-    destinationCostIndex: costIndex,
   };
+}
+
+const sum = (costs: NonActivityCosts) => Object.values(costs).reduce((s, v) => s + v, 0);
+
+export function estimateNonActivityCosts(
+  durationDays: number,
+  travelers: number,
+  destination: string,
+  statedBudget: number | null,
+  activitiesCost = 0
+): NonActivityCosts & { tier: BudgetTierKey; destinationCostIndex: number } {
+  const costIndex = getDestinationCostIndex(destination);
+
+  // No budget stated: assume a typical mid-range trip.
+  let tier: BudgetTierKey = statedBudget ? "budget" : "midRange";
+  if (statedBudget) {
+    for (const candidate of TIERS_MOST_COMFORTABLE_FIRST) {
+      if (sum(costsAtTier(candidate, durationDays, travelers, costIndex)) + activitiesCost <= statedBudget) {
+        tier = candidate;
+        break;
+      }
+    }
+  }
+
+  return { ...costsAtTier(tier, durationDays, travelers, costIndex), tier, destinationCostIndex: costIndex };
 }
 
 export function buildBudgetSummary(
@@ -66,7 +89,8 @@ export function buildBudgetSummary(
     durationDays,
     travelers,
     destination,
-    statedBudget
+    statedBudget,
+    activitiesCost
   );
   const breakdown: BudgetBreakdown = {
     ...nonActivity,

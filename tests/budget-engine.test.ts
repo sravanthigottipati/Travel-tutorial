@@ -40,6 +40,28 @@ describe("estimateNonActivityCosts", () => {
     expect(paris.ACCOMMODATION).toBeGreaterThan(goa.ACCOMMODATION);
   });
 
+  it("keeps the budget tier when a slightly bigger budget can't afford mid-range (no tier cliff)", () => {
+    // ₹18,000 for 2 people / 4 days: mid-range would cost ~₹23,000, so it must stay budget-tier.
+    const costs = estimateNonActivityCosts(4, 2, "goa", 18000);
+    expect(costs.tier).toBe("budget");
+  });
+
+  it("never makes a plan more over budget when the budget goes up", () => {
+    let previousOver = Infinity;
+    for (let budget = 5000; budget <= 200000; budget += 1000) {
+      const { total } = buildBudgetSummary(4, 2, "goa", 2800, budget);
+      const over = Math.max(0, total - budget);
+      expect(over).toBeLessThanOrEqual(previousOver);
+      previousOver = over;
+    }
+  });
+
+  it("uses the most comfortable tier that still fits, counting activities too", () => {
+    const summary = buildBudgetSummary(4, 2, "goa", 2800, 60000);
+    expect(summary.withinBudget).toBe(true);
+    expect(summary.tier).not.toBe("budget");
+  });
+
   it("defaults to mid-range with no stated budget", () => {
     const costs = estimateNonActivityCosts(4, 3, "goa", null);
     expect(costs.tier).toBe("midRange");

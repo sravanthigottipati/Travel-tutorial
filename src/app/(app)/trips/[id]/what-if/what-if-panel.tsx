@@ -26,7 +26,10 @@ export function WhatIfPanel({ tripId, dayNumbers, durationDays, budget }: Props)
   const [budgetDraft, setBudgetDraft] = useState(String(Math.round(budget)));
   const newBudget = Number(budgetDraft);
   const budgetValid = budgetDraft.trim() !== "" && Number.isInteger(newBudget) && newBudget >= 1 && newBudget <= 100_000_000;
-  const [rainDay, setRainDay] = useState(dayNumbers[0] ?? 1);
+  const lastDay = dayNumbers.length > 0 ? Math.max(...dayNumbers) : 1;
+  const [rainDayDraft, setRainDayDraft] = useState(String(dayNumbers[0] ?? 1));
+  const rainDay = Number(rainDayDraft);
+  const rainDayValid = rainDayDraft.trim() !== "" && dayNumbers.includes(rainDay);
   const [active, setActive] = useState<Scenario | null>(null);
   const [result, setResult] = useState<WhatIfResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -149,24 +152,34 @@ export function WhatIfPanel({ tripId, dayNumbers, durationDays, budget }: Props)
             </Button>
           </form>
           {dayNumbers.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">It rains on day</span>
-              <select
-                value={rainDay}
-                onChange={(e) => setRainDay(Number(e.target.value))}
-                aria-label="Rainy day"
-                className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
-              >
-                {dayNumbers.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-              <Button variant="outline" size="sm" onClick={() => run({ type: "rain", dayNumber: rainDay })}>
+            <form
+              className="flex flex-wrap items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (rainDayValid) run({ type: "rain", dayNumber: rainDay });
+              }}
+            >
+              <label htmlFor="rain-day" className="text-sm text-muted-foreground">
+                It rains on day
+              </label>
+              <Input
+                id="rain-day"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={lastDay}
+                step={1}
+                value={rainDayDraft}
+                onChange={(e) => setRainDayDraft(e.target.value)}
+                className="w-20"
+              />
+              <span className={rainDayValid || rainDayDraft === "" ? "text-xs text-muted-foreground" : "text-xs text-destructive"}>
+                {rainDayValid || rainDayDraft === "" ? `of ${lastDay}` : `Enter a day from 1 to ${lastDay}`}
+              </span>
+              <Button type="submit" variant="outline" size="sm" disabled={!rainDayValid}>
                 Show me
               </Button>
-            </div>
+            </form>
           )}
         </CardContent>
       </Card>
@@ -223,11 +236,20 @@ export function WhatIfPanel({ tripId, dayNumbers, durationDays, budget }: Props)
             ) : (
               !result.note && (
                 <p className="text-sm text-muted-foreground">
-                  {result.after.total !== result.before.total
-                    ? "The activities stay the same. The estimate changes because the budget sets the stay, food and transport tier."
-                    : "No activities would change."}
+                  {result.moved.length > 0
+                    ? "Same activities as now — only the order across days changes."
+                    : result.after.total !== result.before.total
+                      ? "The activities stay the same. The estimate changes because the budget sets the stay, food and transport tier."
+                      : "No activities would change."}
                 </p>
               )
+            )}
+
+            {result.moved.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Reordered:{" "}
+                {result.moved.map((m) => `${m.name} (Day ${m.fromDay} → ${m.toDay})`).join(", ")}
+              </p>
             )}
 
             {hasChange && !applied && (

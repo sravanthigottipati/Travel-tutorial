@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateItinerary } from "@/lib/planner/itinerary-engine";
-import { scenarioSchema, simulateScenario, type TripSnapshot } from "@/lib/planner/what-if";
+import { diffDays, scenarioSchema, simulateScenario, type TripSnapshot } from "@/lib/planner/what-if";
 
 function snapshotFor(durationDays: number, budget: number): TripSnapshot {
   const plan = generateItinerary({ destination: "goa", durationDays, travelers: 2, budget, interests: [] });
@@ -97,6 +97,33 @@ describe("simulateScenario", () => {
     const result = simulateScenario(snapshotFor(2, 60000), { type: "rain", dayNumber: 9 }, []);
     expect(result.note).toMatch(/isn't in this itinerary/);
     expect(result.dayDiffs).toEqual([]);
+  });
+});
+
+describe("diffDays", () => {
+  const outcome = (days: string[][]) => ({
+    durationDays: days.length,
+    budget: 1,
+    total: 1,
+    withinBudget: true,
+    days: days.map((names, i) => ({ dayNumber: i + 1, activities: names.map((name) => ({ name, estimatedCost: 0 })) })),
+  });
+
+  it("reports an activity that only changes day as a move, not a removal and an addition", () => {
+    const { dayDiffs, moved } = diffDays(outcome([["Meal", "Fort"], ["View", "Lake"]]), outcome([["View", "Fort"], ["Meal", "Lake"]]));
+    expect(dayDiffs).toEqual([]);
+    expect(moved).toEqual(
+      expect.arrayContaining([
+        { name: "Meal", fromDay: 1, toDay: 2 },
+        { name: "View", fromDay: 2, toDay: 1 },
+      ])
+    );
+  });
+
+  it("still reports genuinely new and dropped activities", () => {
+    const { dayDiffs, moved } = diffDays(outcome([["Meal", "Fort"]]), outcome([["Meal", "Museum"]]));
+    expect(moved).toEqual([]);
+    expect(dayDiffs).toEqual([{ dayNumber: 1, removed: ["Fort"], added: ["Museum"] }]);
   });
 });
 

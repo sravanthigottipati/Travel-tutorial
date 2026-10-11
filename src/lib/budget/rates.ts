@@ -37,21 +37,3 @@ export type BudgetTierKey = keyof typeof BUDGET_TIERS;
 
 export const TRAVELERS_PER_ROOM = 2;
 export const MISCELLANEOUS_RATE = 0.1; // buffer, applied to the subtotal of all other categories
-
-// Picks the cheapest tier that a stated budget can plausibly cover, based on
-// budget per traveler per day. Thresholds are rough (Section 29 territory)
-// but far closer to reality than always assuming mid-range: a traveler who
-// says "under ₹20,000 for 3 people, 4 days" (~₹1,667/person/day) clearly
-// means budget-tier travel, not a ₹2,000/night hotel room per person.
-// Defaults to mid-range when there's no budget signal to go on.
-export function selectBudgetTier(
-  statedBudget: number | null,
-  durationDays: number,
-  travelers: number
-): BudgetTierKey {
-  if (!statedBudget || durationDays <= 0 || travelers <= 0) return "midRange";
-  const perPersonPerDay = statedBudget / (durationDays * travelers);
-  if (perPersonPerDay < 2000) return "budget";
-  if (perPersonPerDay < 5000) return "midRange";
-  return "luxury";
-}

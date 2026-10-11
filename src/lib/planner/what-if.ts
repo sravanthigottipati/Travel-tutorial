@@ -41,12 +41,15 @@ export type Outcome = {
 
 export type DayDiff = { dayNumber: number; removed: string[]; added: string[] };
 
+export type Move = { name: string; fromDay: number; toDay: number };
+
 export type RainSwap = { activityId: string; replaceWith: SnapshotActivity };
 
 export type WhatIfResult = {
   before: Outcome;
   after: Outcome;
   dayDiffs: DayDiff[];
+  moved: Move[];
   note: string | null;
   rainSwaps: RainSwap[];
 };
@@ -94,22 +97,36 @@ function outcomeFromPlan(trip: TripSnapshot, durationDays: number, budget: numbe
   };
 }
 
-function diffDays(before: Outcome, after: Outcome): DayDiff[] {
+// An activity that only changes day (removed from one, added to another) is a
+// move, not a real change — reporting it as both looked like the plan changed
+// when it was the same activities reshuffled.
+export function diffDays(before: Outcome, after: Outcome): { dayDiffs: DayDiff[]; moved: Move[] } {
   const dayNumbers = Array.from(
     new Set([...before.days.map((d) => d.dayNumber), ...after.days.map((d) => d.dayNumber)])
   ).sort((a, b) => a - b);
 
-  return dayNumbers
-    .map((dayNumber) => {
-      const b = before.days.find((d) => d.dayNumber === dayNumber)?.activities.map((a) => a.name) ?? [];
-      const a = after.days.find((d) => d.dayNumber === dayNumber)?.activities.map((x) => x.name) ?? [];
-      return {
-        dayNumber,
-        removed: b.filter((name) => !a.includes(name)),
-        added: a.filter((name) => !b.includes(name)),
-      };
-    })
-    .filter((d) => d.removed.length > 0 || d.added.length > 0);
+  const raw = dayNumbers.map((dayNumber) => {
+    const b = before.days.find((d) => d.dayNumber === dayNumber)?.activities.map((a) => a.name) ?? [];
+    const a = after.days.find((d) => d.dayNumber === dayNumber)?.activities.map((x) => x.name) ?? [];
+    return {
+      dayNumber,
+      removed: b.filter((name) => !a.includes(name)),
+      added: a.filter((name) => !b.includes(name)),
+    };
+  });
+
+  const moved: Move[] = [];
+  for (const from of raw) {
+    for (const name of [...from.removed]) {
+      const to = raw.find((d) => d.dayNumber !== from.dayNumber && d.added.includes(name));
+      if (!to) continue;
+      moved.push({ name, fromDay: from.dayNumber, toDay: to.dayNumber });
+      from.removed.splice(from.removed.indexOf(name), 1);
+      to.added.splice(to.added.indexOf(name), 1);
+    }
+  }
+
+  return { dayDiffs: raw.filter((d) => d.removed.length > 0 || d.added.length > 0), moved };
 }
 
 // Swaps a rainy day's outdoor activities for indoor ones from the curated
@@ -150,7 +167,7 @@ export function simulateScenario(trip: TripSnapshot, scenario: Scenario, interes
   const before = outcomeFromSnapshot(trip);
 
   if (scenario.type === "setBudget" && scenario.amount === Math.round(trip.budget)) {
-    return { before, after: before, dayDiffs: [], note: "That's already your budget.", rainSwaps: [] };
+    return { before, after: before, dayDiffs: [], moved: [], note: "That's already your budget.", rainSwaps: [] };
   }
 
   if (scenario.type === "budget" || scenario.type === "setBudget") {
@@ -159,21 +176,21 @@ export function simulateScenario(trip: TripSnapshot, scenario: Scenario, interes
         ? scenario.amount
         : Math.max(1, Math.round(trip.budget * (1 + scenario.percent / 100)));
     const after = outcomeFromPlan(trip, trip.durationDays, newBudget, interests);
-    return { before, after, dayDiffs: diffDays(before, after), note: null, rainSwaps: [] };
+    return { before, after, ...diffDays(before, after), note: null, rainSwaps: [] };
   }
 
   if (scenario.type === "days") {
     const newDays = Math.min(Math.max(trip.durationDays + scenario.delta, 1), MAX_DAYS);
     if (newDays === trip.durationDays) {
-      return { before, after: before, dayDiffs: [], note: "A trip needs at least one day.", rainSwaps: [] };
+      return { before, after: before, dayDiffs: [], moved: [], note: "A trip needs at least one day.", rainSwaps: [] };
     }
     const after = outcomeFromPlan(trip, newDays, trip.budget, interests);
-    return { before, after, dayDiffs: diffDays(before, after), note: null, rainSwaps: [] };
+    return { before, after, ...diffDays(before, after), note: null, rainSwaps: [] };
   }
 
   const dayExists = trip.days.some((d) => d.dayNumber === scenario.dayNumber);
   if (!dayExists) {
-    return { before, after: before, dayDiffs: [], note: `Day ${scenario.dayNumber} isn't in this itinerary yet.`, rainSwaps: [] };
+    return { before, after: before, dayDiffs: [], moved: [], note: `Day ${scenario.dayNumber} isn't in this itinerary yet.`, rainSwaps: [] };
   }
   const swaps = planRainSwaps(trip, scenario.dayNumber);
   if (swaps.length === 0) {
@@ -187,6 +204,7 @@ export function simulateScenario(trip: TripSnapshot, scenario: Scenario, interes
       before,
       after: before,
       dayDiffs: [],
+      moved: [],
       note: hasOutdoor
         ? `Day ${scenario.dayNumber} has outdoor plans, but every indoor alternative we know for ${trip.destination} is already in your itinerary, so there is nothing new to swap in.`
         : `Day ${scenario.dayNumber} has no outdoor activities we can swap, so rain wouldn't change the plan.`,
@@ -205,5 +223,5 @@ export function simulateScenario(trip: TripSnapshot, scenario: Scenario, interes
     ),
   };
   const after = outcomeFromSnapshot(swapped);
-  return { before, after, dayDiffs: diffDays(before, after), note: null, rainSwaps: swaps };
+  return { before, after, ...diffDays(before, after), note: null, rainSwaps: swaps };
 }
