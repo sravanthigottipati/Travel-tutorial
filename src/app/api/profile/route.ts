@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
+import { limitUser } from "@/lib/security/api-limit";
 
 const updatePreferencesSchema = z.object({
   travelStyle: z.string().trim().max(100).optional(),
@@ -38,6 +39,9 @@ export async function PUT(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = limitUser(session.user.id, "profile-update", 30);
+  if (limited) return limited;
 
   const body = await request.json().catch(() => null);
   const parsed = updatePreferencesSchema.safeParse(body);

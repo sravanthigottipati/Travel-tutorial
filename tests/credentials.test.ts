@@ -74,3 +74,17 @@ describe("loginSchema", () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe("password length bounds", () => {
+  const base = { name: "A", email: "a@example.com" };
+
+  it("accepts passwords up to 128 characters and rejects longer ones", () => {
+    expect(registerSchema.safeParse({ ...base, password: "x".repeat(8) }).success).toBe(true);
+    expect(registerSchema.safeParse({ ...base, password: "x".repeat(128) }).success).toBe(true);
+    expect(registerSchema.safeParse({ ...base, password: "x".repeat(129) }).success).toBe(false);
+  });
+
+  it("login also refuses oversized passwords before any hashing happens", () => {
+    expect(loginSchema.safeParse({ email: "a@example.com", password: "x".repeat(129) }).success).toBe(false);
+  });
+});

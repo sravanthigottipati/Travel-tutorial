@@ -59,6 +59,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   } else {
     const existing = await prisma.activityVote.findFirst({ where: { tripId: trip.id, voterKey }, select: { id: true } });
     if (!existing) {
+      // One address can't mint voter ids fast enough to fill the trip's voter
+      // slots and lock out the real group (10 new voters/hour is generous for
+      // a household or office behind one IP).
+      const newVoterLimit = checkRateLimit(
+        `votes-newvoter:${getClientIp(request)}:${token.slice(0, 8)}`,
+        10,
+        60 * 60_000
+      );
+      if (!newVoterLimit.allowed) {
+        return NextResponse.json(
+          { error: "Too many new voters from this network. Try again later." },
+          { status: 429, headers: rateLimitResponseHeaders(newVoterLimit) }
+        );
+      }
       const voters = await prisma.activityVote.findMany({
         where: { tripId: trip.id },
         distinct: ["voterKey"],

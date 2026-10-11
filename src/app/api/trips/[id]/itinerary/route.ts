@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { generateItineraryForTrip } from "@/lib/planner/trip-service";
+import { limitUser } from "@/lib/security/api-limit";
 import { recalculateTripBudget } from "@/lib/budget/recalculate-trip-budget";
 
 async function getOwnedTrip(userId: string, tripId: string) {
@@ -21,6 +22,8 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = limitUser(session.user.id, "itinerary-generate", 20);
+  if (limited) return limited;
   const { id } = await params;
 
   const trip = await getOwnedTrip(session.user.id, id);
@@ -72,6 +75,8 @@ export async function PUT(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = limitUser(session.user.id, "itinerary-edit", 20);
+  if (limited) return limited;
   const { id } = await params;
 
   const trip = await getOwnedTrip(session.user.id, id);

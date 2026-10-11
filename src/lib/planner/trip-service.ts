@@ -8,11 +8,25 @@ import type { TripContext } from "@/lib/ai/trip-context";
 // Shared by the /api/trips route and the Phase 9 tool layer (createTrip) —
 // one place that actually writes a Trip row, so both the manual "New trip"
 // form/API and the AI orchestrator's tool call produce identical results.
+export const MAX_TRIPS_PER_USER = 100;
+
+export class TripLimitError extends Error {
+  constructor() {
+    super(`You've reached the limit of ${MAX_TRIPS_PER_USER} trips. Delete one to add another.`);
+    this.name = "TripLimitError";
+  }
+}
+
 export async function createTrip(
   userId: string,
   fields: Required<Pick<TripContext, "destination" | "durationDays" | "travelers" | "budget">>,
   startDate?: Date
 ) {
+  // Bounds per-account storage; enforced here (not in the route) so the chat
+  // assistant's createTrip tool can't be used to bypass it.
+  if ((await prisma.trip.count({ where: { userId } })) >= MAX_TRIPS_PER_USER) {
+    throw new TripLimitError();
+  }
   return prisma.trip.create({
     data: {
       userId,

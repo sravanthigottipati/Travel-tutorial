@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   pull_request:
 
+# Least privilege: the jobs only read the repo and upload their own artifact.
+permissions:
+  contents: read
+
 jobs:
   lint-test-build:
     runs-on: ubuntu-latest

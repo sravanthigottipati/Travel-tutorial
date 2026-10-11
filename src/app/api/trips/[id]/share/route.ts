@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { generateShareToken } from "@/lib/security/share-token";
+import { limitUser } from "@/lib/security/api-limit";
 import { Prisma } from "@/generated/prisma/client";
 
 async function getOwnedTrip(userId: string, tripId: string) {
@@ -19,6 +20,8 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = limitUser(session.user.id, "share", 20);
+  if (limited) return limited;
   const { id } = await params;
 
   const trip = await getOwnedTrip(session.user.id, id);
@@ -58,6 +61,8 @@ export async function DELETE(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = limitUser(session.user.id, "share", 20);
+  if (limited) return limited;
   const { id } = await params;
 
   const trip = await getOwnedTrip(session.user.id, id);

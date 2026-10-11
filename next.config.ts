@@ -11,7 +11,17 @@ const securityHeaders = [
   // Clickjacking: refuse to be framed at all, matching the fact that
   // nothing in this app is meant to be embedded elsewhere.
   { key: "X-Frame-Options", value: "DENY" },
-  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+  // Beyond framing: no plugins/objects, no <base> hijacking, and forms can
+  // only post back to this origin. (script-src is deliberately not restricted
+  // here — Next.js inlines scripts, and a nonce-based policy is a bigger change.)
+  {
+    key: "Content-Security-Policy",
+    value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
+  },
+  // Browsers only honour this over HTTPS: keep returning visitors on HTTPS.
+  { key: "Strict-Transport-Security", value: "max-age=31536000" },
+  // Isolate this site's windows from cross-origin pages (no popups are used).
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   // MIME-sniffing: stop browsers from re-interpreting a response's
   // Content-Type based on sniffed content.
   { key: "X-Content-Type-Options", value: "nosniff" },

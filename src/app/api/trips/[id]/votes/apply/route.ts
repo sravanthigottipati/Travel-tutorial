@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { tallyVotes, votedDownIds } from "@/lib/voting/votes";
 import { recalculateTripBudget } from "@/lib/budget/recalculate-trip-budget";
+import { limitUser } from "@/lib/security/api-limit";
 
 // Owner-only: removes every activity the group voted down (strictly more
 // thumbs down than up). Votes on removed activities go with them (cascade).
@@ -11,6 +12,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = limitUser(session.user.id, "votes-apply", 20);
+  if (limited) return limited;
   const { id } = await params;
 
   const trip = await prisma.trip.findFirst({

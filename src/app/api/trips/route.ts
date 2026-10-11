@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { createTripSchema } from "@/lib/planner/trip-schema";
-import { createTrip } from "@/lib/planner/trip-service";
+import { createTrip, TripLimitError } from "@/lib/planner/trip-service";
+import { limitUser } from "@/lib/security/api-limit";
 import { parseStoredTripContext } from "@/lib/ai/trip-context";
 
 export async function GET() {
@@ -25,6 +26,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const userId = session.user.id;
+  const limited = limitUser(userId, "trip-create", 30);
+  if (limited) return limited;
 
   const body = await request.json().catch(() => null);
   const parsed = createTripSchema.safeParse(body);
@@ -71,16 +74,24 @@ export async function POST(request: Request) {
     );
   }
 
-  const trip = await createTrip(
-    userId,
-    {
-      destination: fields.destination,
-      durationDays: fields.durationDays,
-      travelers: fields.travelers,
-      budget: fields.budget,
-    },
-    input.startDate ? new Date(input.startDate) : undefined
-  );
+  let trip;
+  try {
+    trip = await createTrip(
+      userId,
+      {
+        destination: fields.destination,
+        durationDays: fields.durationDays,
+        travelers: fields.travelers,
+        budget: fields.budget,
+      },
+      input.startDate ? new Date(input.startDate) : undefined
+    );
+  } catch (err) {
+    if (err instanceof TripLimitError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
+    throw err;
+  }
 
   if (chatSessionId) {
     await prisma.chatSession.update({

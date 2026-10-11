@@ -7,7 +7,9 @@ const protectedPrefixes = ["/dashboard", "/chat", "/trips", "/profile", "/mood"]
 // Credentials provider lives in auth.ts and extends this.
 export const authConfig = {
   pages: { signIn: "/login" },
-  session: { strategy: "jwt" },
+  // 7 days instead of Auth.js's 30-day default: a stolen or forgotten-on-a-
+  // shared-computer session stops working sooner.
+  session: { strategy: "jwt", maxAge: 7 * 24 * 60 * 60 },
   // Trust the host header Vercel's proxy sets (X-Forwarded-Host) rather
   // than requiring an explicit AUTH_URL — needed for callback URLs and
   // redirects to resolve to the real production domain instead of
