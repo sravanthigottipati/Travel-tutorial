@@ -7,6 +7,7 @@ import { fetchWeatherForecast } from "@/lib/weather/open-meteo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapLoader } from "@/components/trip-map/map-loader";
+import { directionsUrl } from "@/lib/planner/trip-tracking";
 
 export default async function TripMapPage({
   params,
@@ -58,7 +59,21 @@ export default async function TripMapPage({
                 Destination-level location only — individual activities aren&apos;t pinned.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-3">
+              <div>
+                <Button
+                  nativeButton={false}
+                  render={
+                    <a
+                      href={directionsUrl(`${center.lat},${center.lon}`)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Navigate in Google Maps
+                    </a>
+                  }
+                />
+              </div>
               <MapLoader lat={center.lat} lon={center.lon} label={center.label} />
             </CardContent>
           </Card>
